@@ -342,6 +342,9 @@
                 <button id="exportLayoutBtn" class="bg-rose-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-rose-600 transition-colors">
                     📤 Export Layout for Update
                 </button>
+                <button id="apiKeyBtn" class="bg-gray-700 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-gray-800 transition-colors">
+                    ⚙️ API Key
+                </button>
             </div>
             
             <!-- Selection Info -->
@@ -377,6 +380,21 @@
 
     <!-- MODAL WINDOWS CONTAINER -->
     <div id="modal-container">
+         <!-- API Key Modal -->
+        <div id="apiKeyModal" class="modal-window" style="width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">⚙️ Set Your Gemini API Key</h3>
+                <button class="modal-close-btn" onclick="closeModal('apiKeyModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-gray-600 mb-4">Please enter your Gemini API key to enable AI features. Your key is saved securely in your browser's local storage and is never shared.</p>
+                <input type="password" id="apiKeyInput" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-gray-500 focus:outline-none" placeholder="Enter your API Key here...">
+                <button id="saveApiKeyBtn" class="w-full mt-4 bg-gray-700 text-white py-3 px-6 rounded-lg font-semibold hover:bg-gray-800 transition-colors">
+                    Save Key
+                </button>
+            </div>
+        </div>
+
         <!-- Quote of the Day Modal -->
         <div id="quoteModal" class="modal-window" style="width: 450px;">
             <div class="modal-header">
@@ -919,11 +937,17 @@
 
         // --- GEMINI API ---
         async function callGemini(prompt, systemInstruction) {
+            const apiKey = localStorage.getItem('geminiApiKey');
+            if (!apiKey) {
+                alert("Please set your Gemini API Key first!");
+                openModal('apiKeyModal');
+                return null;
+            }
+
             const geminiResult = document.getElementById('geminiResult');
             openModal('geminiModal');
             geminiResult.innerHTML = '<div class="flex justify-center items-center h-full"><div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div></div>';
 
-            const apiKey = "AIzaSyAuFtUiTGRQPMPlOXfcLr_tO--VQwLZwZE"; // API key is handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
@@ -941,18 +965,19 @@
                 const result = await response.json();
                 const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (text) {
-                    let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/^### (.*$)/gim, '<h3>$1</h3>').replace(/^## (.*$)/gim, '<h2>$1</h2>').replace(/^# (.*$)/gim, '<h1>$1</h1>').replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>').replace(/<\/ul>\n<ul>/g, '').replace(/\n/g, '<br>');
-                    geminiResult.innerHTML = html;
+                    return text;
                 } else {
-                    geminiResult.textContent = 'Sorry, I could not get a response from the AI assistant.';
+                   geminiResult.textContent = 'Sorry, I could not get a response from the AI assistant.';
+                   return null;
                 }
             } catch (error) {
                 console.error("Gemini API call failed:", error);
                 geminiResult.textContent = 'An error occurred. Please check the console for details.';
+                return null;
             }
         }
         
-        function handleGenerateLessonIdeas() {
+        async function handleGenerateLessonIdeas() {
             const topic = document.getElementById('teacherNotes').value.trim();
             if (!topic) {
                 alert("Please type a topic in the notes area first!");
@@ -961,10 +986,14 @@
             document.getElementById('geminiTitle').textContent = `✨ Lesson Ideas for: ${topic}`;
             const systemPrompt = "You are a helpful and creative teaching assistant for an elementary school class. Provide engaging, age-appropriate lesson ideas, activities, and discussion questions based on the user's topic. Format your response clearly using Markdown headings and bullet points.";
             const userPrompt = `Generate lesson ideas for the topic: "${topic}"`;
-            callGemini(userPrompt, systemPrompt);
+            const text = await callGemini(userPrompt, systemPrompt);
+            if(text) {
+                 let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/^### (.*$)/gim, '<h3>$1</h3>').replace(/^## (.*$)/gim, '<h2>$1</h2>').replace(/^# (.*$)/gim, '<h1>$1</h1>').replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>').replace(/<\/ul>\n<ul>/g, '').replace(/\n/g, '<br>');
+                document.getElementById('geminiResult').innerHTML = html;
+            }
         }
 
-        function handleExplainGroups() {
+        async function handleExplainGroups() {
             if (currentGroups.length === 0) {
                 alert("Please create groups first!");
                 return;
@@ -975,7 +1004,11 @@
             currentGroups.forEach(group => {
                 userPrompt += `- ${group.name}: ${group.students.join(', ')}\n`;
             });
-            callGemini(userPrompt, systemPrompt);
+            const text = await callGemini(userPrompt, systemPrompt);
+             if(text) {
+                 let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/^### (.*$)/gim, '<h3>$1</h3>').replace(/^## (.*$)/gim, '<h2>$1</h2>').replace(/^# (.*$)/gim, '<h1>$1</h1>').replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>').replace(/<\/ul>\n<ul>/g, '').replace(/\n/g, '<br>');
+                document.getElementById('geminiResult').innerHTML = html;
+            }
         }
 
         // --- SOUNDS ---
@@ -1915,44 +1948,49 @@
             openModal('quoteModal');
             quoteContent.innerHTML = '<div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500"></div>';
             
-            try {
-                const apiKey = ""; // API key is handled by the environment
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+            const text = await callGemini(userPrompt, systemPrompt);
 
-                const payload = { 
-                    contents: [{ parts: [{ text: userPrompt }] }],
-                    systemInstruction: { parts: [{ text: systemPrompt }] }
-                };
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (text && text.includes('|')) {
-                    const [quoteText, author] = text.split('|').map(s => s.trim());
-                     quoteContent.innerHTML = `
-                        <figure>
-                            <blockquote class="text-xl italic font-semibold text-gray-900">
-                                <p>"${quoteText}"</p>
-                            </blockquote>
-                            <figcaption class="mt-4 text-right text-gray-600">
-                                - ${author || "Unknown"}
-                            </figcaption>
-                        </figure>
-                    `;
-                } else {
-                     throw new Error("Invalid format from API");
-                }
-            } catch (error) {
-                console.error("Failed to fetch quote:", error);
-                quoteContent.innerHTML = '<p class="text-red-500">Sorry, could not fetch a quote at this time.</p>';
+            if (text && text.includes('|')) {
+                const [quoteText, author] = text.split('|').map(s => s.trim());
+                 quoteContent.innerHTML = `
+                    <figure>
+                        <blockquote class="text-xl italic font-semibold text-gray-900">
+                            <p>"${quoteText}"</p>
+                        </blockquote>
+                        <figcaption class="mt-4 text-right text-gray-600">
+                            - ${author || "Unknown"}
+                        </figcaption>
+                    </figure>
+                `;
+            } else if (text) { // Fallback if format is wrong
+                 quoteContent.innerHTML = `<p>${text}</p>`;
+            }
+            // If text is null, the error message is already handled by callGemini
+        }
+        
+        // --- API KEY MANAGEMENT ---
+        function saveApiKey() {
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            const apiKey = apiKeyInput.value.trim();
+            if (apiKey) {
+                localStorage.setItem('geminiApiKey', apiKey);
+                const btn = document.getElementById('saveApiKeyBtn');
+                btn.textContent = '✅ Saved!';
+                setTimeout(() => {
+                    closeModal('apiKeyModal');
+                    btn.textContent = 'Save Key';
+                }, 1500);
+            } else {
+                alert("Please enter an API Key.");
             }
         }
+
+        function openApiKeyModal() {
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            apiKeyInput.value = localStorage.getItem('geminiApiKey') || '';
+            openModal('apiKeyModal');
+        }
+
 
         // Initialize App
         document.addEventListener('DOMContentLoaded', () => {
@@ -2079,8 +2117,10 @@
                 }
             });
             document.getElementById('groupMakerBtn').addEventListener('click', () => openModal('groupMakerModal'));
+            document.getElementById('apiKeyBtn').addEventListener('click', openApiKeyModal);
             
             // Other Listeners
+            document.getElementById('saveApiKeyBtn').addEventListener('click', saveApiKey);
             document.getElementById('addTodoBtn').addEventListener('click', addTodo);
             document.getElementById('todoInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') addTodo(); });
             document.getElementById('rollDiceBtn').addEventListener('click', rollDice);
@@ -2127,5 +2167,4 @@
     </script>
 </body>
 </html>
-
 
