@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prep C Rocks!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .desk {
+            cursor: move;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.3s ease;
+        }
+        .desk:hover {
+            transform: scale(1.02);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+        .desk.dragging {
+            transform: rotate(5deg) scale(1.05);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            z-index: 1000;
+        }
+        .desk.selected {
+            border: 3px solid #fbbf24;
+            box-shadow: 0 0 20px rgba(251, 191, 36, 0.5);
+        }
+        .desk.absent {
+            opacity: 0.4;
+            filter: grayscale(80%);
+        }
+        .selection-info {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            z-index: 2000;
+        }
+        .student-photo {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 50%;
+            background-color: #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            color: #6b7280;
+        }
+        .classroom {
+            min-height: 150vh;
+            background: 
+                linear-gradient(135deg, rgba(34, 197, 94, 0.8) 0%, rgba(59, 130, 246, 0.8) 50%, rgba(147, 51, 234, 0.8) 100%),
+                url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M10 10h80v80H10V10zm5 5v70h70V15H15z'/%3E%3Cpath d='M20 20h60v60H20V20zm5 5v50h50V25H25z'/%3E%3C/g%3E%3C/svg%3E");
+            position: relative;
+        }
+        .classroom::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.05) 0%, transparent 30%);
+            pointer-events: none;
+        }
+        .classroom-floor {
+            background: 
+                linear-gradient(45deg, rgba(139, 69, 19, 0.1) 25%, transparent 25%),
+                linear-gradient(-45deg, rgba(139, 69, 19, 0.1) 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, rgba(139, 69, 19, 0.1) 75%),
+                linear-gradient(-45deg, transparent 75%, rgba(139, 69, 19, 0.1) 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        .desk-colors {
+            background: linear-gradient(135deg, var(--desk-color-1), var(--desk-color-2));
+        }
+        .group-zone {
+            border: 3px dashed rgba(255, 255, 255, 0.6);
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            min-height: 120px;
+            transition: all 0.3s ease;
+        }
+        .group-zone.drag-over {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.9);
+            transform: scale(1.02);
+        }
+        .group-item {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 8px;
+            padding: 8px;
+            margin: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #374151;
+            cursor: move;
+            transition: all 0.2s ease;
+        }
+        .group-item:hover {
+            background: rgba(255, 255, 255, 1);
+            transform: scale(1.05);
+        }
+        .dice-3d {
+            transform-style: preserve-3d;
+            animation: rollDice 2s ease-in-out;
+        }
+        @keyframes rollDice {
+            0% { transform: rotateX(0deg) rotateY(0deg); }
+            25% { transform: rotateX(90deg) rotateY(180deg); }
+            50% { transform: rotateX(180deg) rotateY(360deg); }
+            75% { transform: rotateX(270deg) rotateY(540deg); }
+            100% { transform: rotateX(360deg) rotateY(720deg); }
+        }
+        .sticker {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            cursor: move;
+            z-index: 100;
+            transition: transform 0.2s ease;
+            user-select: none;
+        }
+        .sticker:hover {
+            transform: scale(1.2);
+        }
+        .sticker.dragging {
+            transform: scale(1.3) rotate(10deg);
+            z-index: 1001;
+        }
+        .custom-background {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+        .todo-item.completed span {
+            text-decoration: line-through;
+            color: #9ca3af;
+        }
+        /* Draggable & Resizable Modal Styles */
+        .modal-window {
+            position: absolute;
+            display: none;
+            z-index: 100;
+            background-color: white;
+            border-radius: 1rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+            border: 1px solid #d1d5db;
+            min-width: 300px;
+            min-height: 200px;
+            overflow: hidden; /* Important for resizing */
+        }
+        .modal-header {
+            padding: 0.75rem 1rem;
+            cursor: move;
+            background-color: #f9fafb;
+            border-top-left-radius: 1rem;
+            border-top-right-radius: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .modal-body {
+            padding: 1rem;
+            height: calc(100% - 50px); /* Adjust based on header height */
+            overflow-y: auto;
+        }
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        .modal-close-btn {
+            font-size: 1.5rem;
+            color: #9ca3af;
+            cursor: pointer;
+            background: none;
+            border: none;
+            line-height: 1;
+        }
+        .modal-close-btn:hover {
+            color: #1f2937;
+        }
+        .resize-handle {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 15px;
+            height: 15px;
+            cursor: se-resize;
+            background: repeating-linear-gradient(-45deg, #ccc, #ccc 1px, transparent 1px, transparent 4px);
+            border-bottom-right-radius: 1rem;
+        }
+        /* Markdown-like styling for Gemini output */
+        .gemini-content h1 { font-size: 1.5em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
+        .gemini-content h2 { font-size: 1.25em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
+        .gemini-content h3 { font-size: 1.1em; font-weight: bold; margin-top: 1em; margin-bottom: 0.5em; }
+        .gemini-content ul { list-style-type: disc; margin-left: 2em; margin-bottom: 1em; }
+        .gemini-content ol { list-style-type: decimal; margin-left: 2em; margin-bottom: 1em; }
+        .gemini-content li { margin-bottom: 0.5em; }
+        .gemini-content p { margin-bottom: 1em; }
+        .gemini-content strong, .gemini-content b { font-weight: bold; }
+        .gemini-content em, .gemini-content i { font-style: italic; }
+        .gemini-content pre, .gemini-content code { background-color: #f3f4f6; padding: 0.2em 0.4em; border-radius: 0.25em; font-family: monospace; }
+        .gemini-content pre { padding: 1em; overflow-x: auto; }
+    </style>
+</head>
+<body class="classroom p-8" id="mainBody">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-4xl font-bold text-white text-center mb-8 drop-shadow-lg">
+            🏫 Prep C Rocks! 📚
+        </h1>
+        <p class="text-white text-center mb-12 text-lg opacity-90">
+            Drag and drop student desks to arrange your classroom layout
+        </p>
+        
+        <div class="flex justify-center gap-4 mb-6 flex-wrap">
+            <button id="resetBtn" class="bg-white text-purple-600 px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-purple-50 transition-colors">
+                🔄 Reset Layout
+            </button>
+            <button id="saveLayoutBtn" class="bg-green-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-green-600 transition-colors">
+                💾 Save as Default
+            </button>
+            <button id="loadLayoutBtn" class="bg-indigo-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-indigo-600 transition-colors">
+                📂 Load Saved Layout
+            </button>
+            <button id="groupMakerBtn" class="bg-blue-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-blue-600 transition-colors">
+                👥 Group Maker
+            </button>
+            <button id="clearSelectionBtn" class="bg-yellow-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-yellow-600 transition-colors">
+                ❌ Clear Selection
+            </button>
+            <button id="randomStudentBtn" class="bg-pink-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-pink-600 transition-colors">
+                🎲 Random Student
+            </button>
+            <button id="timerBtn" class="bg-orange-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-orange-600 transition-colors">
+                ⏰ Activity Timer
+            </button>
+            <button id="scoreboardBtn" class="bg-teal-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-teal-600 transition-colors">
+                🏆 Scoreboard
+            </button>
+        </div>
+
+        <!-- New Feature Buttons -->
+        <div class="flex justify-center gap-4 mb-6 flex-wrap">
+            <button id="attendanceBtn" class="bg-fuchsia-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-fuchsia-600 transition-colors">
+                ✔️ Attendance
+            </button>
+            <button id="todoBtn" class="bg-sky-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-sky-600 transition-colors">
+                📋 To-Do List
+            </button>
+            <button id="diceBtn" class="bg-purple-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-purple-700 transition-colors">
+                🎲 Digital Dice
+            </button>
+            <button id="stickersBtn" class="bg-red-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-red-600 transition-colors">
+                ⭐ Award Stickers
+            </button>
+            <button id="notesBtn" class="bg-cyan-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-cyan-600 transition-colors">
+                📝 Teacher Notes
+            </button>
+            <button id="backgroundBtn" class="bg-emerald-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-emerald-600 transition-colors">
+                🖼️ Background
+            </button>
+            <button id="toggleDesksBtn" class="bg-slate-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-slate-600 transition-colors">
+                🙈 Hide Desks
+            </button>
+            <button id="exportLayoutBtn" class="bg-rose-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-rose-600 transition-colors">
+                📤 Export Layout for Update
+            </button>
+        </div>
+        
+        <!-- Selection Info -->
+        <div id="selectionInfo" class="selection-info" style="display: none;">
+            <div>Selected: <span id="selectedCount">0</span> desks</div>
+            <div class="text-xs mt-1">Hold Ctrl/Cmd + Click to select multiple desks</div>
+        </div>
+        
+        <div id="classroom-area" class="relative bg-white/10 backdrop-blur-sm rounded-3xl p-8 classroom-floor border-4 border-white/20" style="min-height: 1200px;">
+            <!-- Classroom decorations -->
+            <div class="absolute top-4 left-4 text-white/30 text-6xl">🎓</div>
+            <div class="absolute top-4 right-4 text-white/30 text-6xl">📖</div>
+            <div class="absolute bottom-4 left-4 text-white/30 text-6xl">✏️</div>
+            <div class="absolute bottom-4 right-4 text-white/30 text-6xl">🌟</div>
+            
+            <!-- Teacher's Desk -->
+            <div id="teacher-desk" class="absolute rounded-xl shadow-lg p-6 w-60 h-40 border-3 border-yellow-400 cursor-move" 
+                 style="left: 50%; top: 20px; transform: translateX(-50%); background: linear-gradient(135deg, #fbbf24, #f59e0b);">
+                <div class="flex flex-col items-center h-full justify-center">
+                    <div class="text-3xl mb-2">👩‍🏫</div>
+                    <div class="text-lg font-bold text-yellow-900 text-center">
+                        Teacher's Desk
+                    </div>
+                    <div class="text-sm text-yellow-800 text-center mt-1">
+                        Front of Classroom
+                    </div>
+                </div>
+            </div>
+            <!-- Students will be dynamically added here -->
+        </div>
+    </div>
+
+    <!-- MODAL WINDOWS CONTAINER -->
+    <div id="modal-container">
+        <!-- Export Layout Modal -->
+        <div id="exportModal" class="modal-window" style="width: 700px;">
+            <div class="modal-header">
+                 <h3 class="modal-title">📤 Export Layout to Update Code</h3>
+                 <button class="modal-close-btn" onclick="closeModal('exportModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-4 text-gray-700">To permanently save the current desk layout, copy the code below. Then, paste it in the chat and ask me to update the application with it.</p>
+                <textarea id="layoutExportCode" readonly class="w-full h-64 p-2 border rounded-md font-mono text-sm bg-gray-100"></textarea>
+                <button id="copyLayoutCodeBtn" class="w-full mt-4 bg-blue-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-600 transition-colors">
+                    Copy to Clipboard
+                </button>
+            </div>
+        </div>
+
+        <!-- Gemini Result Modal -->
+        <div id="geminiModal" class="modal-window" style="width: 550px;">
+            <div class="modal-header">
+                <h3 id="geminiTitle" class="modal-title">✨ AI Assistant</h3>
+                <button class="modal-close-btn" onclick="closeModal('geminiModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="geminiResult" class="gemini-content p-2 bg-gray-50 rounded-lg min-h-[200px]"></div>
+            </div>
+        </div>
+
+        <!-- Attendance Modal -->
+        <div id="attendanceModal" class="modal-window" style="width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">✔️ Attendance</h3>
+                <button class="modal-close-btn" onclick="closeModal('attendanceModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="attendanceList" class="grid grid-cols-2 gap-4"></div>
+            </div>
+        </div>
+        
+        <!-- To-Do List Modal -->
+        <div id="todoModal" class="modal-window" style="width: 450px;">
+            <div class="modal-header">
+                <h3 class="modal-title">📋 Class To-Do List</h3>
+                <button class="modal-close-btn" onclick="closeModal('todoModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="flex mb-4">
+                    <input type="text" id="todoInput" class="flex-grow px-4 py-2 border-2 border-gray-300 rounded-l-lg focus:border-sky-500 focus:outline-none" placeholder="Add a new task...">
+                    <button id="addTodoBtn" class="bg-sky-500 text-white px-6 py-2 rounded-r-lg font-semibold hover:bg-sky-600 transition-colors">Add</button>
+                </div>
+                <div id="todoList" class="space-y-2 max-h-60 overflow-y-auto"></div>
+            </div>
+        </div>
+
+        <!-- Digital Dice Modal -->
+        <div id="diceModal" class="modal-window" style="width: 600px;">
+            <div class="modal-header">
+                 <h3 class="modal-title">🎲 Digital Dice Roller</h3>
+                 <button class="modal-close-btn" onclick="closeModal('diceModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">Number of Dice:</label>
+                            <input type="number" id="diceCount" min="1" max="10" value="1" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg text-center">
+                        </div>
+                        <div class="mb-4">
+                            <label class="block text-gray-700 font-semibold mb-2">Dice Type:</label>
+                            <select id="diceSides" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none">
+                                <option value="4">4-sided (D4)</option>
+                                <option value="6" selected>6-sided (D6)</option>
+                                <option value="8">8-sided (D8)</option>
+                                <option value="10">10-sided (D10)</option>
+                                <option value="12">12-sided (D12)</option>
+                                <option value="20">20-sided (D20)</option>
+                                <option value="100">100-sided (D100)</option>
+                            </select>
+                        </div>
+                        <button id="rollDiceBtn" class="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">🎲 Roll Dice!</button>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <h4 class="text-lg font-bold text-gray-800 mb-4 text-center">🎯 Results</h4>
+                        <div id="diceResults" class="min-h-40 flex flex-wrap gap-4 justify-center items-center">
+                            <div class="text-gray-500 text-center">Click "Roll Dice!" to start</div>
+                        </div>
+                        <div id="diceTotal" class="mt-4 text-center text-2xl font-bold text-purple-600" style="display: none;">Total: <span id="totalValue">0</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Award Stickers Modal -->
+        <div id="stickersModal" class="modal-window" style="width: 650px;">
+             <div class="modal-header">
+                 <h3 class="modal-title">⭐ Award Stickers</h3>
+                 <button class="modal-close-btn" onclick="closeModal('stickersModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="flex justify-between items-center mb-4">
+                    <p class="text-gray-600 text-sm">Click a sticker to add it to the classroom.</p>
+                    <button id="clearStickersBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm">🗑️ Clear All Stickers</button>
+                </div>
+                <div class="grid grid-cols-8 md:grid-cols-10 lg:grid-cols-12 gap-2">
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="⭐">⭐</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🌟">🌟</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="✨">✨</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🏆">🏆</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🥇">🥇</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="👍">👍</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="👏">👏</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="💯">💯</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="✅">✅</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="💪">💪</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🔥">🔥</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🎉">🎉</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="📚">📚</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🧠">🧠</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="💡">💡</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🎨">🎨</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🎵">🎵</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🦁">🦁</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🦋">🦋</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🌺">🌺</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🦸">🦸</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🛡️">🛡️</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="⚔️">⚔️</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🚀">🚀</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="⚡">⚡</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🧙">🧙</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="🪄">🪄</div>
+                    <div class="sticker-option text-3xl cursor-pointer hover:scale-125 transition-transform p-1 rounded-lg hover:bg-gray-100" data-sticker="💍">💍</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Teacher Notes Modal -->
+        <div id="notesModal" class="modal-window" style="width: 600px;">
+             <div class="modal-header">
+                 <h3 class="modal-title">📝 Teacher Notes</h3>
+                 <button class="modal-close-btn" onclick="closeModal('notesModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="flex gap-2 mb-4">
+                    <button id="geminiLessonBtn" class="flex-grow bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors">✨ Generate Lesson Ideas</button>
+                    <button id="saveNotesBtn" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors">💾</button>
+                    <button id="loadNotesBtn" class="bg-blue-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-600 transition-colors">📂</button>
+                </div>
+                <textarea id="teacherNotes" class="w-full h-80 p-4 border-2 border-gray-300 rounded-lg focus:border-cyan-500 focus:outline-none resize-none" placeholder="Write lesson plans... Or, just type a topic like 'Ancient Rome' and click 'Generate Lesson Ideas'!"></textarea>
+            </div>
+        </div>
+
+        <!-- Background Upload Modal -->
+        <div id="backgroundModal" class="modal-window" style="width: 400px;">
+             <div class="modal-header">
+                 <h3 class="modal-title">🖼️ Classroom Background</h3>
+                 <button class="modal-close-btn" onclick="closeModal('backgroundModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">Upload Image:</label>
+                    <input type="file" id="backgroundUpload" accept="image/*" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100">
+                </div>
+                <div class="flex gap-2">
+                    <button id="removeBackgroundBtn" class="w-full bg-red-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-red-600 transition-colors">🗑️ Remove</button>
+                    <button id="defaultBackgroundBtn" class="w-full bg-purple-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-purple-600 transition-colors">🎨 Restore Default</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Random Student Modal -->
+        <div id="randomStudentModal" class="modal-window" style="width: 650px;">
+             <div class="modal-header">
+                 <h3 class="modal-title">🎲 Random Student Picker</h3>
+                 <button class="modal-close-btn" onclick="closeModal('randomStudentModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="text-center">
+                        <div id="randomStudentDisplay" class="mb-6 p-6 bg-gradient-to-r from-pink-100 to-purple-100 rounded-xl">
+                            <div id="pickerEmoji" class="text-6xl mb-4">🎯</div>
+                            <div id="selectedStudentName" class="text-2xl font-bold text-gray-800 min-h-[60px] flex items-center justify-center">Click to pick!</div>
+                        </div>
+                        <button id="pickStudentBtn" class="w-full bg-pink-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-pink-600 transition-colors">🎲 Pick Random Student</button>
+                    </div>
+                    <div class="bg-gray-50 rounded-xl p-4">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-lg font-bold text-gray-800">📋 Previously Picked</h4>
+                            <button id="resetPickedBtn" class="bg-orange-500 text-white px-3 py-1 rounded-lg font-semibold hover:bg-orange-600 transition-colors text-sm">🔄 Reset</button>
+                        </div>
+                        <div id="pickedStudentsList" class="max-h-60 overflow-y-auto space-y-2"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Timer Setup Modal -->
+        <div id="timerModal" class="modal-window" style="width: 380px;">
+            <div class="modal-header">
+                <h3 class="modal-title">⏰ Setup Timer</h3>
+                <button class="modal-close-btn" onclick="closeModal('timerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label class="block text-gray-700 font-semibold mb-2">Set Timer (minutes):</label>
+                <input type="number" id="timerMinutes" min="1" max="60" value="5" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-orange-500 focus:outline-none text-lg text-center mb-4">
+                <button id="startTimerBtn" class="w-full bg-orange-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-orange-600 transition-colors">▶️ Start Timer</button>
+            </div>
+        </div>
+        
+        <!-- Timer Display Modal -->
+        <div id="timerDisplayModal" class="modal-window" style="width: 420px;">
+            <div class="modal-header">
+                <h3 class="modal-title">⏰ Activity Timer Running</h3>
+                <button class="modal-close-btn" onclick="stopTimer()">&times;</button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="timerDisplay" class="text-8xl font-bold text-orange-500 mb-6">5:00</div>
+                <div class="flex gap-4 justify-center">
+                    <button id="pauseTimerBtn" class="bg-yellow-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-yellow-600 transition-colors">⏸️ Pause</button>
+                    <button id="stopTimerBtn" class="bg-red-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-red-600 transition-colors">⏹️ Stop</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scoreboard Setup Modal -->
+        <div id="scoreboardSetupModal" class="modal-window" style="width: 380px;">
+            <div class="modal-header">
+                <h3 class="modal-title">🏆 Scoreboard Setup</h3>
+                <button class="modal-close-btn" onclick="closeModal('scoreboardSetupModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <label class="block text-gray-700 font-semibold mb-2">Number of Teams:</label>
+                <input type="number" id="teamCount" min="2" max="8" value="2" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-teal-500 focus:outline-none text-lg text-center mb-4">
+                <button id="createScoreboardBtn" class="w-full bg-teal-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-teal-600 transition-colors">Create Scoreboard</button>
+            </div>
+        </div>
+
+        <!-- Scoreboard Display Modal -->
+        <div id="scoreboardDisplayModal" class="modal-window" style="width: 700px;">
+            <div class="modal-header">
+                <h3 class="modal-title">🏆 Scoreboard</h3>
+                <button class="modal-close-btn" onclick="closeModal('scoreboardDisplayModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="scoreboardTeams" class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"></div>
+                <div class="text-center">
+                    <button id="resetScoresBtn" class="bg-orange-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-orange-600 transition-colors">🔄 Reset All Scores</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Group Maker Modal -->
+        <div id="groupMakerModal" class="modal-window" style="width: 400px;">
+            <div class="modal-header">
+                <h3 class="modal-title">👥 Create Groups</h3>
+                <button class="modal-close-btn" onclick="closeModal('groupMakerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">Number of Groups:</label>
+                    <input type="number" id="groupCount" min="2" max="12" value="4" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg text-center">
+                </div>
+                <div class="mb-4">
+                    <label class="block text-gray-700 font-semibold mb-2">Group Assignment:</label>
+                    <select id="groupMethod" class="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none">
+                        <option value="random">Random</option>
+                        <option value="manual">Manual (Drag & Drop)</option>
+                    </select>
+                </div>
+                <button id="createGroupsBtn" class="w-full bg-blue-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-600 transition-colors">Create Groups</button>
+            </div>
+        </div>
+        
+        <!-- Groups Display Container (not a modal) -->
+        <div id="groupsContainer" class="mb-6" style="display: none;">
+            <div class="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border-2 border-white/30">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-white">📋 Current Groups</h3>
+                    <div>
+                        <button id="geminiGroupBtn" class="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors text-sm mr-2">
+                            ✨ Explain Groups
+                        </button>
+                        <button id="clearGroupsBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm">
+                            Clear Groups
+                        </button>
+                    </div>
+                </div>
+                <div id="studentPool" class="mb-6" style="display: none;">
+                    <div class="bg-white/10 rounded-xl p-4 border-2 border-white/20 group-zone" data-group-id="pool">
+                        <h4 class="text-white font-bold mb-3 text-center">👥 Available Students</h4>
+                        <div class="text-xs text-white/80 text-center mb-3">Drag students from here to assign them to groups.</div>
+                        <div id="availableStudents" class="flex flex-wrap gap-2 min-h-[60px] justify-center"></div>
+                    </div>
+                </div>
+                <div id="groupsList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Audio Elements for Sound Effects -->
+    <audio id="sound-timer" src="https://cdn.freesound.org/previews/219/219244_4049792-lq.mp3" preload="auto"></audio>
+
+    <script>
+        const initialStudents = [
+    {
+        "name": "Almira Demiral",
+        "photo": "https://drive.google.com/thumbnail?id=1drLU93qRNJBeYw7ozG4v3N7nyhATr7Md&sz=w200",
+        "position": {
+            "left": "22.9089px",
+            "top": "228.226px"
+        }
+    },
+    {
+        "name": "Amara Viyan Kaplan",
+        "photo": "https://drive.google.com/thumbnail?id=1KqOob4gAePMFxK9b0LgKSEF3_sf-ygsl&sz=w200",
+        "position": {
+            "left": "454.978px",
+            "top": "225.892px"
+        }
+    },
+    {
+        "name": "Arel Deniz Gülçiçek",
+        "photo": "https://drive.google.com/thumbnail?id=1NdbkkRuyOQ_m8uY5-U7Hb3V4G2ikUr8Z&sz=w200",
+        "position": {
+            "left": "242.796px",
+            "top": "226.747px"
+        }
+    },
+    {
+        "name": "Asaf Öztürk",
+        "photo": "https://drive.google.com/thumbnail?id=1Oxyi5DdGLpOcEUp8N7ggZ90We67R-E_Z&sz=w200",
+        "position": {
+            "left": "698.911px",
+            "top": "226.827px"
+        }
+    },
+    {
+        "name": "Ayışığı Dila Hayıt",
+        "photo": "https://drive.google.com/thumbnail?id=1bYjPiMFyx4AKkZpeHbzknes4CS810HO4&sz=w200",
+        "position": {
+            "left": "37.7114px",
+            "top": "719.678px"
+        }
+    },
+    {
+        "name": "Ayşe Berra Yalçın",
+        "photo": "https://drive.google.com/thumbnail?id=1J6-ob-nXfwtHXwNNqr6Utllt466T-9hI&sz=w200",
+        "position": {
+            "left": "460.522px",
+            "top": "892.113px"
+        }
+    },
+    {
+        "name": "Azra Uzun",
+        "photo": "https://drive.google.com/thumbnail?id=1ExZp01uDDSrdNcJPRIqknSr1OHa7pp9G&sz=w200",
+        "position": {
+            "left": "241.804px",
+            "top": "399.446px"
+        }
+    },
+    {
+        "name": "Burhan Dostbil",
+        "photo": "https://drive.google.com/thumbnail?id=1fXbU2a91jNdf_838Mf0rqkFkvpA3mvbk&sz=w200",
+        "position": {
+            "left": "453.869px",
+            "top": "392.495px"
+        }
+    },
+    {
+        "name": "Doğa Erdoğan",
+        "photo": "https://drive.google.com/thumbnail?id=1LJP-0KpZ4eIqHcF2b0vZ1MrvUpjg_5_Q&sz=w200",
+        "position": {
+            "left": "460.867px",
+            "top": "557.798px"
+        }
+    },
+    {
+        "name": "Duru Deniz Ezen",
+        "photo": "https://drive.google.com/thumbnail?id=1dRFEwp_XF4KZ7pyGvZ_m9KUJVPX9BpCo&sz=w200",
+        "position": {
+            "left": "910.975px",
+            "top": "414.873px"
+        }
+    },
+    {
+        "name": "Ege Akgün",
+        "photo": "https://drive.google.com/thumbnail?id=1GfklnnwkBKd7HzORsLaOoz5zVMGxJx6F&sz=w200",
+        "position": {
+            "left": "40.4735px",
+            "top": "567.374px"
+        }
+    },
+    {
+        "name": "Emir Aslantaş",
+        "photo": "https://drive.google.com/thumbnail?id=1PHSPz2kUL_r6mwljdIXZ1Bm1PyZfTzPO&sz=w200",
+        "position": {
+            "left": "910.924px",
+            "top": "237.062px"
+        }
+    },
+    {
+        "name": "Erdal Ege Düzgün",
+        "photo": "https://drive.google.com/thumbnail?id=1LFdglD84SJ-B0hwrguMI5kl_Wm1fTB77&sz=w200",
+        "position": {
+            "left": "242.985px",
+            "top": "558.195px"
+        }
+    },
+    {
+        "name": "Handan Çelik",
+        "photo": "https://drive.google.com/thumbnail?id=1JMrNy78j_IQAcbD015m9QN5OURcPrNqx&sz=w200",
+        "position": {
+            "left": "683.081px",
+            "top": "722.09px"
+        }
+    },
+    {
+        "name": "İrem Nur Polat",
+        "photo": "https://drive.google.com/thumbnail?id=18rNn1J_Y25hWWvQXTdO00H5kl0otvB6n&sz=w200",
+        "position": {
+            "left": "697.087px",
+            "top": "398.061px"
+        }
+    },
+    {
+        "name": "Kaan Efe Dağdelen",
+        "photo": "https://drive.google.com/thumbnail?id=1cjGLib-He9N3KVW4RRk6DU3_OZQzfLPa&sz=w200",
+        "position": {
+            "left": "32.6249px",
+            "top": "386.897px"
+        }
+    },
+    {
+        "name": "Mehmet Selim Kara",
+        "photo": "https://drive.google.com/thumbnail?id=1QndvoMkaZfjbNwCZR4UA8m-0ZBNniS85&sz=w200",
+        "position": {
+            "left": "242.534px",
+            "top": "882.149px"
+        }
+    },
+    {
+        "name": "Muhammed Rüzgar Can",
+        "photo": "https://drive.google.com/thumbnail?id=1RNeTFZoiuMJ1Dd3O6KOJBrWzXoZ7xHbC&sz=w200",
+        "position": {
+            "left": "695.896px",
+            "top": "565.333px"
+        }
+    },
+    {
+        "name": "Musa Çengel",
+        "photo": "https://drive.google.com/thumbnail?id=1RRP6Lt6WqYFOU-hZhtZd8nf5k45QdTnH&sz=w200",
+        "position": {
+            "left": "906.081px",
+            "top": "568.824px"
+        }
+    },
+    {
+        "name": "Mustafa Tan",
+        "photo": "https://drive.google.com/thumbnail?id=1j-bMYhsqGt3maPN47HKsgyLw4XFbtrTA&sz=w200",
+        "position": {
+            "left": "469.873px",
+            "top": "723.434px"
+        }
+    },
+    {
+        "name": "Ozan Fercan",
+        "photo": "https://drive.google.com/thumbnail?id=1G-aYaZm4wdjLLRnU7PH3AYg8nUhfcHfE&sz=w200",
+        "position": {
+            "left": "40.8069px",
+            "top": "877.447px"
+        }
+    },
+    {
+        "name": "Yiğit Ege Çalım",
+        "photo": "https://drive.google.com/thumbnail?id=16_LRGO05Fouf-4PkZV6BPXL1pD5MgVcd&sz=w200",
+        "position": {
+            "left": "704.081px",
+            "top": "890.251px"
+        }
+    },
+    {
+        "name": "Zehra Sultan Karabay",
+        "photo": "https://drive.google.com/thumbnail?id=15o0TNGGyx-3byx0rbWugN2F6fwsMpmdL&sz=w200",
+        "position": {
+            "left": "241.652px",
+            "top": "722.928px"
+        }
+    }
+];
+
+        let studentsData = [];
+
+        const deskColors = [
+            ['#ef4444', '#dc2626'], ['#f97316', '#ea580c'], ['#eab308', '#ca8a04'], ['#22c55e', '#16a34a'],
+            ['#06b6d4', '#0891b2'], ['#3b82f6', '#2563eb'], ['#8b5cf6', '#7c3aed'], ['#ec4899', '#db2777'],
+            ['#10b981', '#059669'], ['#f59e0b', '#d97706'],
+        ];
+
+        let draggedElement = null, offset = { x: 0, y: 0 }, isDragging = false, selectedDesks = new Set();
+        let isMultiSelecting = false, savedLayout = null, currentGroups = [], isGroupMode = false;
+        let timerInterval = null, timerSeconds = 0, timerPaused = false, scoreboardTeams = [];
+        let pickedStudents = new Set(), isPickerAnimating = false, stickerCounter = 0, draggedSticker = null;
+        let stickerOffset = { x: 0, y: 0 }, desksVisible = true, todoItems = [], highestZ = 100;
+
+        // --- GEMINI API ---
+        async function callGemini(prompt, systemInstruction) {
+            const geminiResult = document.getElementById('geminiResult');
+            openModal('geminiModal');
+            geminiResult.innerHTML = '<div class="flex justify-center items-center h-full"><div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div></div>';
+
+            const apiKey = ""; // API key is handled by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const payload = { contents: [{ parts: [{ text: prompt }] }] };
+            if(systemInstruction){
+                payload.systemInstruction = { parts: [{ text: systemInstruction }] };
+            }
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (text) {
+                    let html = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/^### (.*$)/gim, '<h3>$1</h3>').replace(/^## (.*$)/gim, '<h2>$1</h2>').replace(/^# (.*$)/gim, '<h1>$1</h1>').replace(/^\* (.*$)/gim, '<ul><li>$1</li></ul>').replace(/<\/ul>\n<ul>/g, '').replace(/\n/g, '<br>');
+                    geminiResult.innerHTML = html;
+                } else {
+                    geminiResult.textContent = 'Sorry, I could not get a response from the AI assistant.';
+                }
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                geminiResult.textContent = 'An error occurred. Please check the console for details.';
+            }
+        }
+        
+        function handleGenerateLessonIdeas() {
+            const topic = document.getElementById('teacherNotes').value.trim();
+            if (!topic) {
+                alert("Please type a topic in the notes area first!");
+                return;
+            }
+            document.getElementById('geminiTitle').textContent = `✨ Lesson Ideas for: ${topic}`;
+            const systemPrompt = "You are a helpful and creative teaching assistant for an elementary school class. Provide engaging, age-appropriate lesson ideas, activities, and discussion questions based on the user's topic. Format your response clearly using Markdown headings and bullet points.";
+            const userPrompt = `Generate lesson ideas for the topic: "${topic}"`;
+            callGemini(userPrompt, systemPrompt);
+        }
+
+        function handleExplainGroups() {
+            if (currentGroups.length === 0) {
+                alert("Please create groups first!");
+                return;
+            }
+            document.getElementById('geminiTitle').textContent = "✨ Super Team Explanations!";
+            const systemPrompt = "You are an enthusiastic and imaginative elementary school teacher. Your task is to look at the student groups and come up with a fun, creative team name for each group and a short, positive sentence explaining why they are a great team, based on the combination of their names. Be encouraging and fun!";
+            let userPrompt = "Here are the student groups. Give each group a fun team name and a creative rationale.\n\n";
+            currentGroups.forEach(group => {
+                userPrompt += `- ${group.name}: ${group.students.join(', ')}\n`;
+            });
+            callGemini(userPrompt, systemPrompt);
+        }
+
+        // --- SOUNDS ---
+        function playSound(soundId) {
+            try {
+                const sound = document.getElementById(soundId);
+                if (sound) {
+                    sound.currentTime = 0;
+                    sound.play();
+                }
+            } catch (e) { console.warn("Sound could not be played.", e); }
+        }
+
+        // --- MODALS ---
+        function makeModalDraggable(modal) {
+            const header = modal.querySelector('.modal-header');
+            if (!header) return;
+            let offsetX, offsetY, isDragging = false;
+            const onMouseDown = (e) => {
+                isDragging = true;
+                modal.style.zIndex = ++highestZ;
+                offsetX = e.clientX - modal.offsetLeft;
+                offsetY = e.clientY - modal.offsetTop;
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            };
+            const onMouseMove = (e) => {
+                if (!isDragging) return;
+                const newX = e.clientX - offsetX;
+                const newY = e.clientY - offsetY;
+                const maxX = document.body.clientWidth - modal.offsetWidth;
+                const maxY = document.body.clientHeight - modal.offsetHeight;
+                modal.style.left = `${Math.max(0, Math.min(newX, maxX))}px`;
+                modal.style.top = `${Math.max(0, Math.min(newY, maxY))}px`;
+            };
+            const onMouseUp = () => {
+                isDragging = false;
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+            header.addEventListener('mousedown', onMouseDown);
+            modal.addEventListener('mousedown', () => { modal.style.zIndex = ++highestZ; });
+        }
+
+        function makeModalResizable(modal) {
+            const handle = document.createElement('div');
+            handle.className = 'resize-handle';
+            modal.appendChild(handle);
+            let initialWidth, initialHeight, initialX, initialY;
+            const onMouseDown = (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent dragging the whole modal
+                initialWidth = modal.offsetWidth;
+                initialHeight = modal.offsetHeight;
+                initialX = e.clientX;
+                initialY = e.clientY;
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+            };
+            const onMouseMove = (e) => {
+                const dx = e.clientX - initialX;
+                const dy = e.clientY - initialY;
+                const newWidth = initialWidth + dx;
+                const newHeight = initialHeight + dy;
+                modal.style.width = `${Math.max(parseInt(getComputedStyle(modal).minWidth), newWidth)}px`;
+                modal.style.height = `${Math.max(parseInt(getComputedStyle(modal).minHeight), newHeight)}px`;
+            };
+            const onMouseUp = () => {
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+            };
+            handle.addEventListener('mousedown', onMouseDown);
+        }
+
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.style.display = 'block';
+                modal.style.zIndex = ++highestZ;
+                if (!modal.style.left || parseInt(modal.style.left) > window.innerWidth || parseInt(modal.style.top) > window.innerHeight) {
+                     modal.style.left = Math.max(0, (window.innerWidth / 2 - modal.offsetWidth / 2)) + 'px';
+                     modal.style.top = `${Math.random() * 150 + 50}px`;
+                }
+            }
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            if(modal) modal.style.display = 'none';
+        }
+
+        function getInitials(name) {
+            return name.split(' ').map(word => word[0]).join('').toUpperCase();
+        }
+
+        function updateSelectionInfo() {
+            const selectionInfo = document.getElementById('selectionInfo');
+            const selectedCount = document.getElementById('selectedCount');
+            if (selectedDesks.size > 0) {
+                selectedCount.textContent = selectedDesks.size;
+                selectionInfo.style.display = 'block';
+            } else {
+                selectionInfo.style.display = 'none';
+            }
+        }
+
+        function toggleDeskSelection(desk, event) {
+            if (event.ctrlKey || event.metaKey) {
+                if (selectedDesks.has(desk)) {
+                    selectedDesks.delete(desk);
+                    desk.classList.remove('selected');
+                } else {
+                    selectedDesks.add(desk);
+                    desk.classList.add('selected');
+                }
+                updateSelectionInfo();
+                return true;
+            } else if (selectedDesks.size > 0 && !selectedDesks.has(desk)) {
+                clearSelection();
+            }
+            return false;
+        }
+
+        function clearSelection() {
+            selectedDesks.forEach(desk => desk.classList.remove('selected'));
+            selectedDesks.clear();
+            updateSelectionInfo();
+        }
+        
+        // --- DATA PERSISTENCE ---
+        function saveStudentData() {
+            localStorage.setItem('studentsData', JSON.stringify(studentsData));
+        }
+
+        function loadStudentData() {
+            const savedData = localStorage.getItem('studentsData');
+            if (savedData) {
+                studentsData = JSON.parse(savedData);
+                // Compare with initialStudents to see if the roster has changed.
+                const initialNames = initialStudents.map(s => s.name).sort();
+                const savedNames = studentsData.map(s => s.name).sort();
+                if (JSON.stringify(initialNames) !== JSON.stringify(savedNames)) {
+                    initializeStudentData(); // Roster is different, reset.
+                }
+            } else {
+                initializeStudentData();
+            }
+        }
+
+        function initializeStudentData() {
+             studentsData = initialStudents.map(student => ({
+                name: student.name,
+                photo: student.photo,
+                position: student.position || null,
+                attendance: 'present',
+                points: 0
+            }));
+            saveStudentData();
+        }
+
+        function saveCurrentLayout() {
+            const layout = {};
+            document.querySelectorAll('.desk, #teacher-desk').forEach(desk => {
+                layout[desk.id] = { left: desk.style.left, top: desk.style.top };
+            });
+            savedLayout = layout;
+            localStorage.setItem('classroomLayout', JSON.stringify(layout));
+            const btn = document.getElementById('saveLayoutBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '✅ Saved!';
+            btn.style.backgroundColor = '#10b981';
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.style.backgroundColor = '#22c55e';
+            }, 2000);
+        }
+
+        function loadSavedLayout() {
+            const saved = localStorage.getItem('classroomLayout');
+            if (saved) {
+                savedLayout = JSON.parse(saved);
+                Object.keys(savedLayout).forEach(deskId => {
+                    const desk = document.getElementById(deskId);
+                    if (desk && savedLayout[deskId]) {
+                        desk.style.left = savedLayout[deskId].left;
+                        desk.style.top = savedLayout[deskId].top;
+                    }
+                });
+            }
+        }
+
+        function createDesk(student, index) {
+            const desk = document.createElement('div');
+            const [color1, color2] = deskColors[index % deskColors.length];
+            desk.className = 'desk absolute rounded-xl shadow-lg p-2 w-40 h-32 border-2 border-white/30';
+            if (student.attendance === 'absent') desk.classList.add('absent');
+            desk.style.background = `linear-gradient(135deg, ${color1}, ${color2})`;
+            desk.id = `desk-${index}`;
+            desk.dataset.studentName = student.name;
+
+            if (student.position && student.position.left && student.position.top) {
+                desk.style.left = student.position.left;
+                desk.style.top = student.position.top;
+            } else {
+                const row = Math.floor(index / 5);
+                const col = index % 5;
+                if (index >= 20) {
+                    desk.style.left = `${120 + (index - 20) * 180}px`;
+                } else {
+                    desk.style.left = `${50 + col * 180}px`;
+                }
+                desk.style.top = `${220 + row * 160}px`;
+            }
+
+            desk.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="student-photo border-2 border-white/50 bg-white/20">
+                        <img src="${student.photo}" alt="${student.name}" class="w-full h-full object-cover rounded-full" 
+                             onerror="this.style.display='none'; this.parentElement.innerHTML='${getInitials(student.name)}'; this.parentElement.style.color='white'; this.parentElement.style.fontWeight='bold';">
+                    </div>
+                    <div class="participation-tracker relative text-center p-1 rounded-full group">
+                        <div class="cursor-pointer" onclick="addParticipationPoint('${student.name}', event)">
+                            <div class="text-2xl">⭐</div>
+                            <div class="font-bold text-white text-lg point-counter">${student.points}</div>
+                        </div>
+                        <button title="Reset Points" onclick="resetStudentPoints('${student.name}', event)" class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full h-6 w-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700 z-10">
+                            🔄
+                        </button>
+                    </div>
+                </div>
+                <div class="text-xs font-semibold text-center text-white leading-tight drop-shadow-sm mt-1">${student.name}</div>
+            `;
+            desk.addEventListener('mousedown', handleMouseDown);
+            return desk;
+        }
+
+        function handleMouseDown(e) {
+            e.preventDefault();
+            if (e.target.closest('.participation-tracker')) return;
+            const desk = e.currentTarget;
+            if (toggleDeskSelection(desk, e)) return;
+            if (selectedDesks.size > 0 && selectedDesks.has(desk)) {
+                draggedElement = Array.from(selectedDesks);
+                isMultiSelecting = true;
+            } else {
+                draggedElement = desk; isMultiSelecting = false;
+            }
+            isDragging = true;
+            const rect = desk.getBoundingClientRect();
+            offset.x = e.clientX - rect.left;
+            offset.y = e.clientY - rect.top;
+            if (isMultiSelecting) {
+                draggedElement.forEach(d => { d.classList.add('dragging'); d.style.zIndex = '1000'; });
+            } else {
+                draggedElement.classList.add('dragging'); draggedElement.style.zIndex = '1000';
+            }
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        function handleMouseMove(e) {
+            if (!isDragging || !draggedElement) return;
+            const containerRect = document.getElementById('classroom-area').getBoundingClientRect();
+            const newX = e.clientX - containerRect.left - offset.x;
+            const newY = e.clientY - containerRect.top - offset.y;
+            const maxX = containerRect.width - 160;
+            const maxY = containerRect.height - 128;
+            const x = Math.max(0, Math.min(newX, maxX));
+            const y = Math.max(0, Math.min(newY, maxY));
+            if (isMultiSelecting) {
+                const firstDesk = draggedElement[0];
+                const firstRect = firstDesk.getBoundingClientRect();
+                const deltaX = x - (firstRect.left - containerRect.left);
+                const deltaY = y - (firstRect.top - containerRect.top);
+                draggedElement.forEach(desk => {
+                    const currentRect = desk.getBoundingClientRect();
+                    const newDeskX = Math.max(0, Math.min((currentRect.left - containerRect.left) + deltaX, maxX));
+                    const newDeskY = Math.max(0, Math.min((currentRect.top - containerRect.top) + deltaY, maxY));
+                    desk.style.left = `${newDeskX}px`;
+                    desk.style.top = `${newDeskY}px`;
+                });
+            } else {
+                draggedElement.style.left = `${x}px`;
+                draggedElement.style.top = `${y}px`;
+            }
+        }
+
+        function handleMouseUp(e) {
+            if (draggedElement) {
+                if (isMultiSelecting) {
+                    draggedElement.forEach(desk => { desk.classList.remove('dragging'); desk.style.zIndex = '1'; });
+                } else {
+                    draggedElement.classList.remove('dragging');
+                    draggedElement.style.zIndex = '1';
+                }
+                draggedElement = null;
+            }
+            isDragging = false; isMultiSelecting = false;
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
+
+        // --- ATTENDANCE ---
+        function openAttendanceModal() {
+            const listContainer = document.getElementById('attendanceList');
+            listContainer.innerHTML = '';
+            studentsData.forEach(student => {
+                const studentDiv = document.createElement('div');
+                studentDiv.className = 'flex items-center justify-between p-2 rounded-lg border';
+                studentDiv.innerHTML = `<span class="font-medium text-sm">${student.name}</span><div class="flex gap-1"><button class="px-2 py-1 text-xs rounded ${student.attendance === 'present' ? 'bg-green-500 text-white' : 'bg-gray-200'}" onclick="setAttendance('${student.name}', 'present')">Present</button><button class="px-2 py-1 text-xs rounded ${student.attendance === 'absent' ? 'bg-red-500 text-white' : 'bg-gray-200'}" onclick="setAttendance('${student.name}', 'absent')">Absent</button></div>`;
+                listContainer.appendChild(studentDiv);
+            });
+            openModal('attendanceModal');
+        }
+
+        function setAttendance(studentName, status) {
+            const student = studentsData.find(s => s.name === studentName);
+            if (student) {
+                student.attendance = status;
+                saveStudentData();
+                openAttendanceModal(); // Refresh modal view
+                updateDeskAppearance(studentName);
+            }
+        }
+        
+        function updateDeskAppearance(studentName) {
+            const student = studentsData.find(s => s.name === studentName);
+            const desk = document.querySelector(`[data-student-name="${studentName}"]`);
+            if (student && desk) {
+                if (student.attendance === 'absent') desk.classList.add('absent');
+                else desk.classList.remove('absent');
+            }
+        }
+
+        // --- PARTICIPATION TRACKER ---
+        function addParticipationPoint(studentName, event) {
+            event.stopPropagation();
+            const student = studentsData.find(s => s.name === studentName);
+            if (student) {
+                student.points++;
+                saveStudentData();
+                const desk = document.querySelector(`[data-student-name="${studentName}"]`);
+                if (desk) desk.querySelector('.point-counter').textContent = student.points;
+            }
+        }
+
+        function resetStudentPoints(studentName, event) {
+            event.stopPropagation(); // Prevent adding a point when resetting
+            const student = studentsData.find(s => s.name === studentName);
+            if (student) {
+                student.points = 0;
+                saveStudentData();
+                const desk = document.querySelector(`[data-student-name="${studentName}"]`);
+                if (desk) {
+                    desk.querySelector('.point-counter').textContent = student.points;
+                }
+            }
+        }
+
+        // --- TO-DO LIST ---
+        function saveTodoList() { localStorage.setItem('todoList', JSON.stringify(todoItems)); }
+        function loadTodoList() { todoItems = JSON.parse(localStorage.getItem('todoList')) || []; }
+        function renderTodoList() {
+            const listContainer = document.getElementById('todoList');
+            listContainer.innerHTML = todoItems.length ? '' : '<p class="text-gray-500 text-center">No tasks yet.</p>';
+            todoItems.forEach((item, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = `todo-item flex items-center justify-between p-3 rounded-lg bg-gray-50 border ${item.completed ? 'completed' : ''}`;
+                itemDiv.innerHTML = `<div class="flex items-center gap-3"><input type="checkbox" ${item.completed ? 'checked' : ''} onchange="toggleTodo(${index})"><span>${item.text}</span></div><button class="text-red-500 hover:text-red-700 font-bold" onclick="removeTodo(${index})">✕</button>`;
+                listContainer.appendChild(itemDiv);
+            });
+        }
+        function addTodo() {
+            const input = document.getElementById('todoInput');
+            if (input.value.trim()) {
+                todoItems.push({ text: input.value.trim(), completed: false });
+                input.value = '';
+                saveTodoList(); renderTodoList();
+            }
+        }
+        function toggleTodo(index) {
+            todoItems[index].completed = !todoItems[index].completed;
+            saveTodoList(); renderTodoList();
+        }
+        function removeTodo(index) {
+            todoItems.splice(index, 1);
+            saveTodoList(); renderTodoList();
+        }
+
+        // --- STICKERS ---
+        function saveStickers() {
+            const stickersOnScreen = [];
+            document.querySelectorAll('.sticker').forEach(sticker => {
+                stickersOnScreen.push({
+                    emoji: sticker.textContent,
+                    left: sticker.style.left,
+                    top: sticker.style.top
+                });
+            });
+            localStorage.setItem('classroomStickers', JSON.stringify(stickersOnScreen));
+        }
+
+        function loadStickers() {
+            const savedStickers = JSON.parse(localStorage.getItem('classroomStickers')) || [];
+            savedStickers.forEach(stickerData => {
+                createSticker(stickerData.emoji, parseFloat(stickerData.left), parseFloat(stickerData.top), false); // Don't re-save on load
+            });
+        }
+
+        function createSticker(emoji, x, y, shouldSave = true) {
+            const sticker = document.createElement('div');
+            sticker.className = 'sticker';
+            sticker.textContent = emoji;
+            sticker.style.left = `${x}px`;
+            sticker.style.top = `${y}px`;
+            sticker.style.fontSize = '30px';
+            sticker.id = `sticker-${stickerCounter++}`;
+            sticker.addEventListener('mousedown', handleStickerMouseDown);
+            sticker.addEventListener('dblclick', () => {
+                sticker.remove();
+                saveStickers();
+            });
+            document.getElementById('classroom-area').appendChild(sticker);
+            if (shouldSave) saveStickers();
+        }
+        function handleStickerMouseDown(e) {
+            e.preventDefault(); e.stopPropagation();
+            draggedSticker = e.currentTarget;
+            draggedSticker.classList.add('dragging');
+            const rect = draggedSticker.getBoundingClientRect();
+            stickerOffset.x = e.clientX - rect.left;
+            stickerOffset.y = e.clientY - rect.top;
+            document.addEventListener('mousemove', handleStickerMouseMove);
+            document.addEventListener('mouseup', handleStickerMouseUp);
+        }
+        function handleStickerMouseMove(e) {
+            if (!draggedSticker) return;
+            const containerRect = document.getElementById('classroom-area').getBoundingClientRect();
+            const newX = e.clientX - containerRect.left - stickerOffset.x;
+            const newY = e.clientY - containerRect.top - stickerOffset.y;
+            draggedSticker.style.left = `${Math.max(0, Math.min(newX, containerRect.width - 30))}px`;
+            draggedSticker.style.top = `${Math.max(0, Math.min(newY, containerRect.height - 30))}px`;
+        }
+        function handleStickerMouseUp(e) {
+            if (draggedSticker) draggedSticker.classList.remove('dragging');
+            draggedSticker = null;
+            document.removeEventListener('mousemove', handleStickerMouseMove);
+            document.removeEventListener('mouseup', handleStickerMouseUp);
+            saveStickers();
+        }
+        function clearAllStickers() {
+            document.querySelectorAll('.sticker').forEach(s => s.remove());
+            saveStickers();
+        }
+
+        // Dice Functions
+        function rollDice() {
+            const diceCount = parseInt(document.getElementById('diceCount').value);
+            const diceSides = parseInt(document.getElementById('diceSides').value);
+            const resultsContainer = document.getElementById('diceResults');
+            resultsContainer.innerHTML = '';
+            let total = 0;
+            for (let i = 0; i < diceCount; i++) {
+                const result = Math.floor(Math.random() * diceSides) + 1;
+                total += result;
+                const diceDiv = document.createElement('div');
+                diceDiv.className = 'dice-3d bg-gradient-to-br from-purple-400 to-purple-600 text-white rounded-xl w-16 h-16 flex items-center justify-center text-2xl font-bold shadow-lg';
+                diceDiv.textContent = result;
+                resultsContainer.appendChild(diceDiv);
+            }
+            const totalContainer = document.getElementById('diceTotal');
+            if (diceCount > 1) {
+                document.getElementById('totalValue').textContent = total;
+                totalContainer.style.display = 'block';
+            } else {
+                totalContainer.style.display = 'none';
+            }
+        }
+
+        // Notes Functions
+        function saveNotes() {
+            localStorage.setItem('teacherNotes', document.getElementById('teacherNotes').value);
+        }
+        function loadNotes() {
+            document.getElementById('teacherNotes').value = localStorage.getItem('teacherNotes') || '';
+        }
+
+        // Background Functions
+        function handleBackgroundUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const classroomArea = document.getElementById('classroom-area');
+                    classroomArea.style.backgroundImage = `url(${e.target.result})`;
+                    classroomArea.classList.add('custom-background');
+                    try {
+                        localStorage.setItem('customBackground', e.target.result);
+                    } catch (error) {
+                        if (error.name === 'QuotaExceededError') console.warn('Background too large to save.');
+                        else console.error('Error saving background:', error);
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        function removeBackground() {
+            const classroomArea = document.getElementById('classroom-area');
+            classroomArea.style.backgroundImage = '';
+            classroomArea.classList.remove('custom-background');
+            localStorage.removeItem('customBackground');
+        }
+        function loadSavedBackground() {
+            const saved = localStorage.getItem('customBackground');
+            if (saved) {
+                const classroomArea = document.getElementById('classroom-area');
+                classroomArea.style.backgroundImage = `url(${saved})`;
+                classroomArea.classList.add('custom-background');
+            }
+        }
+
+        // Initialize classroom
+        function initializeClassroom(useDefault = false) {
+            const classroomArea = document.getElementById('classroom-area');
+            classroomArea.querySelectorAll('.desk').forEach(desk => desk.remove());
+            studentsData.forEach((student, index) => {
+                classroomArea.appendChild(createDesk(student, index));
+            });
+            document.getElementById('teacher-desk')?.addEventListener('mousedown', handleMouseDown);
+            if (!useDefault) setTimeout(() => loadSavedLayout(), 100);
+        }
+
+        // Export Layout
+        function exportLayoutForUpdate() {
+            const newStudentsArray = studentsData.map(student => {
+                const desk = document.querySelector(`.desk[data-student-name="${student.name}"]`);
+                const position = {
+                    left: desk ? desk.style.left : '0px',
+                    top: desk ? desk.style.top : '0px'
+                };
+                return {
+                    name: student.name,
+                    photo: student.photo,
+                    position: position
+                };
+            });
+            const codeString = `const initialStudents = ${JSON.stringify(newStudentsArray, null, 4)};`;
+            document.getElementById('layoutExportCode').value = codeString;
+            openModal('exportModal');
+        }
+
+        function copyToClipboard(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+        }
+
+
+        function shuffleArray(array) {
+            const shuffled = [...array];
+            for (let i = shuffled.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+            }
+            return shuffled;
+        }
+
+        function createGroups(numGroups, method) {
+            const presentStudents = studentsData.filter(s => s.attendance === 'present').map(s => s.name);
+            currentGroups = Array.from({ length: numGroups }, (_, i) => ({ id: i + 1, name: `Group ${i + 1}`, students: [] }));
+            if (method === 'random') {
+                const shuffledStudents = shuffleArray(presentStudents);
+                shuffledStudents.forEach((student, index) => currentGroups[index % numGroups].students.push(student));
+                document.getElementById('studentPool').style.display = 'none';
+            } else {
+                displayStudentPool(presentStudents);
+                document.getElementById('studentPool').style.display = 'block';
+            }
+            displayGroups();
+            isGroupMode = true;
+        }
+
+        function displayStudentPool(availableStudents) {
+            const poolContainer = document.getElementById('availableStudents');
+            poolContainer.innerHTML = '';
+            availableStudents.forEach(student => {
+                const studentDiv = document.createElement('div');
+                studentDiv.className = 'group-item bg-blue-200 text-blue-800';
+                studentDiv.draggable = true;
+                studentDiv.dataset.student = student;
+                studentDiv.textContent = student;
+                studentDiv.addEventListener('dragstart', handleStudentDragStart);
+                poolContainer.appendChild(studentDiv);
+            });
+        }
+
+        function displayGroups() {
+            const container = document.getElementById('groupsContainer');
+            const groupsList = document.getElementById('groupsList');
+            groupsList.innerHTML = '';
+            currentGroups.forEach(group => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'group-zone p-4'; groupDiv.dataset.groupId = group.id;
+                groupDiv.innerHTML = `<h4 class="text-white font-bold mb-3 text-center">${group.name}</h4><div class="group-students min-h-[80px]">${group.students.map(s => `<div class="group-item" draggable="true" data-student="${s}">${s}</div>`).join('')}</div>`;
+                groupDiv.addEventListener('dragover', handleGroupDragOver);
+                groupDiv.addEventListener('drop', handleGroupDrop);
+                groupDiv.querySelectorAll('.group-item').forEach(item => item.addEventListener('dragstart', handleStudentDragStart));
+                groupsList.appendChild(groupDiv);
+            });
+            const studentPool = document.querySelector('#studentPool .group-zone');
+            if (studentPool) {
+                studentPool.addEventListener('dragover', handleGroupDragOver);
+                studentPool.addEventListener('drop', handlePoolDrop);
+            }
+            container.style.display = 'block';
+        }
+
+        function handleGroupDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+        function handleGroupDrop(e) {
+            e.preventDefault();
+            const groupZone = e.currentTarget;
+            groupZone.classList.remove('drag-over');
+            const studentName = e.dataTransfer.getData('text/plain');
+            const sourceGroupId = e.dataTransfer.getData('source-group');
+            const targetGroupId = groupZone.dataset.groupId;
+            if (sourceGroupId !== targetGroupId) {
+                if (sourceGroupId && sourceGroupId !== 'pool') {
+                    const sourceGroup = currentGroups.find(g => g.id == sourceGroupId);
+                    if (sourceGroup) sourceGroup.students = sourceGroup.students.filter(s => s !== studentName);
+                }
+                const targetGroup = currentGroups.find(g => g.id == targetGroupId);
+                if (targetGroup && !targetGroup.students.includes(studentName)) targetGroup.students.push(studentName);
+                if (sourceGroupId === 'pool') document.getElementById('availableStudents').querySelector(`[data-student="${studentName}"]`)?.remove();
+                displayGroups();
+            }
+        }
+        function handleStudentDragStart(e) {
+            e.dataTransfer.setData('text/plain', e.target.dataset.student);
+            e.dataTransfer.setData('source-group', e.target.closest('.group-zone')?.dataset.groupId || 'pool');
+        }
+        function handlePoolDrop(e) {
+            e.preventDefault(); e.currentTarget.classList.remove('drag-over');
+            const studentName = e.dataTransfer.getData('text/plain');
+            const sourceGroupId = e.dataTransfer.getData('source-group');
+            if (sourceGroupId && sourceGroupId !== 'pool') {
+                const sourceGroup = currentGroups.find(g => g.id == sourceGroupId);
+                if (sourceGroup) sourceGroup.students = sourceGroup.students.filter(s => s !== studentName);
+                displayStudentPool(studentsData.filter(s => s.attendance === 'present' && !currentGroups.flatMap(g => g.students).includes(s.name)).map(s => s.name));
+                displayGroups();
+            }
+        }
+        function clearGroups() {
+            currentGroups = []; isGroupMode = false;
+            document.getElementById('groupsContainer').style.display = 'none';
+        }
+
+        // --- RANDOM STUDENT PICKER ---
+        function savePickedStudents() {
+            localStorage.setItem('pickedStudents', JSON.stringify(Array.from(pickedStudents)));
+        }
+
+        function loadPickedStudents() {
+            const saved = localStorage.getItem('pickedStudents');
+            if (saved) {
+                pickedStudents = new Set(JSON.parse(saved));
+            }
+        }
+
+        function pickRandomStudent() {
+            if (isPickerAnimating) return;
+
+            const presentStudents = studentsData.filter(s => s.attendance === 'present');
+            if (presentStudents.length === 0) {
+                document.getElementById('selectedStudentName').textContent = "No students are present!";
+                return;
+            }
+
+            const unpickedPresentStudents = presentStudents.filter(s => !pickedStudents.has(s.name));
+
+            if (unpickedPresentStudents.length === 0) {
+                document.getElementById('selectedStudentName').textContent = "All students picked!";
+                return;
+            }
+
+            isPickerAnimating = true;
+            const pickBtn = document.getElementById('pickStudentBtn');
+            const nameDisplay = document.getElementById('selectedStudentName');
+            const emojiDisplay = document.getElementById('pickerEmoji');
+            pickBtn.disabled = true;
+            let animationCount = 0;
+            const animationInterval = setInterval(() => {
+                nameDisplay.textContent = unpickedPresentStudents[Math.floor(Math.random() * unpickedPresentStudents.length)].name;
+                emojiDisplay.textContent = ['🎯', '🎲', '⭐', '🎊', '🎉', '✨'][animationCount % 6];
+                animationCount++;
+                if (animationCount >= 30) {
+                    clearInterval(animationInterval);
+                    
+                    const finalStudent = unpickedPresentStudents[Math.floor(Math.random() * unpickedPresentStudents.length)];
+                    
+                    nameDisplay.style.transform = 'scale(1.2)'; nameDisplay.style.color = '#ec4899';
+                    nameDisplay.textContent = finalStudent.name; emojiDisplay.textContent = '🏆';
+                    addToPickedList(finalStudent.name);
+                    setTimeout(() => {
+                        nameDisplay.style.transform = 'scale(1)'; nameDisplay.style.color = '#374151';
+                        pickBtn.disabled = false; isPickerAnimating = false;
+                    }, 1000);
+                }
+            }, 100);
+        }
+        function addToPickedList(studentName) {
+            if (!pickedStudents.has(studentName)) {
+                pickedStudents.add(studentName);
+                savePickedStudents();
+                updatePickedStudentsList();
+            }
+        }
+        function updatePickedStudentsList() {
+            const listContainer = document.getElementById('pickedStudentsList');
+            listContainer.innerHTML = pickedStudents.size === 0 ? '<div class="text-gray-500 text-center py-4">No students picked yet</div>' : '';
+            if (pickedStudents.size > 0) {
+                Array.from(pickedStudents).forEach(name => {
+                    const item = document.createElement('div');
+                    item.className = 'flex items-center justify-between bg-white rounded-lg p-3 shadow-sm border';
+                    item.innerHTML = `<div class="flex items-center gap-3"><div class="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-sm">✓</div><span class="font-medium text-gray-800">${name}</span></div><button onclick="removeFromPickedList('${name}')" class="text-red-500 hover:text-red-700 text-sm font-medium">Remove</button>`;
+                    listContainer.appendChild(item);
+                });
+            }
+        }
+        function removeFromPickedList(studentName) {
+            pickedStudents.delete(studentName);
+            savePickedStudents();
+            updatePickedStudentsList();
+        }
+        function resetPickedList() {
+            pickedStudents.clear();
+            savePickedStudents();
+            updatePickedStudentsList();
+        }
+
+        // Timer Functions
+        function startTimer(minutes) {
+            timerSeconds = minutes * 60;
+            timerPaused = false;
+            updateTimerDisplay();
+            closeModal('timerModal');
+            openModal('timerDisplayModal');
+            timerInterval = setInterval(() => {
+                if (!timerPaused) {
+                    timerSeconds--;
+                    updateTimerDisplay();
+                    if (timerSeconds <= 0) {
+                        clearInterval(timerInterval);
+                        playSound('sound-timer');
+                        showTimerFinished();
+                    }
+                }
+            }, 1000);
+        }
+        function updateTimerDisplay() {
+            const minutes = Math.floor(timerSeconds / 60);
+            const seconds = timerSeconds % 60;
+            const timerDisplayEl = document.getElementById('timerDisplay');
+            timerDisplayEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            if (timerSeconds <= 60) timerDisplayEl.className = 'text-8xl font-bold text-red-500 mb-6';
+            else if (timerSeconds <= 300) timerDisplayEl.className = 'text-8xl font-bold text-yellow-500 mb-6';
+            else timerDisplayEl.className = 'text-8xl font-bold text-orange-500 mb-6';
+        }
+        function pauseTimer() {
+            timerPaused = !timerPaused;
+            document.getElementById('pauseTimerBtn').innerHTML = timerPaused ? '▶️ Resume' : '⏸️ Pause';
+        }
+        function stopTimer() {
+            clearInterval(timerInterval);
+            closeModal('timerDisplayModal');
+        }
+        function showTimerFinished() {
+            const timerDisplay = document.getElementById('timerDisplay');
+            timerDisplay.textContent = 'TIME\'S UP!';
+            timerDisplay.className = 'text-6xl font-bold text-red-500 mb-6 animate-pulse';
+        }
+
+        // --- SCOREBOARD ---
+        function saveScoreboard() {
+            localStorage.setItem('scoreboard', JSON.stringify(scoreboardTeams));
+        }
+
+        function loadScoreboard() {
+            const saved = localStorage.getItem('scoreboard');
+            if (saved && saved !== '[]') {
+                scoreboardTeams = JSON.parse(saved);
+                return true;
+            }
+            return false;
+        }
+        
+        function createScoreboard(numTeams) {
+            scoreboardTeams = Array.from({ length: numTeams }, (_, i) => ({ id: i + 1, name: `Team ${i + 1}`, score: 0 }));
+            saveScoreboard();
+            displayScoreboard();
+            closeModal('scoreboardSetupModal');
+            openModal('scoreboardDisplayModal');
+        }
+        function displayScoreboard() {
+            const container = document.getElementById('scoreboardTeams');
+            container.innerHTML = '';
+            scoreboardTeams.forEach(team => {
+                const teamDiv = document.createElement('div');
+                teamDiv.className = 'bg-gradient-to-br from-teal-100 to-blue-100 rounded-xl p-4 text-center border-2 border-teal-200';
+                teamDiv.innerHTML = `<h4 class="text-xl font-bold text-gray-800 mb-2">${team.name}</h4><div class="text-4xl font-bold text-teal-600 mb-2">${team.score}</div><div class="flex gap-1 justify-center"><button onclick="updateScore(${team.id}, 1)" class="bg-green-500 text-white px-2 py-1 rounded-lg font-semibold hover:bg-green-600 transition-colors text-xs">+1</button><button onclick="updateScore(${team.id}, 5)" class="bg-blue-500 text-white px-2 py-1 rounded-lg font-semibold hover:bg-blue-600 transition-colors text-xs">+5</button><button onclick="updateScore(${team.id}, -1)" class="bg-red-500 text-white px-2 py-1 rounded-lg font-semibold hover:bg-red-600 transition-colors text-xs">-1</button></div>`;
+                container.appendChild(teamDiv);
+            });
+        }
+        function updateScore(teamId, points) {
+            const team = scoreboardTeams.find(t => t.id === teamId);
+            if (team) {
+                team.score = Math.max(0, team.score + points);
+                saveScoreboard();
+                displayScoreboard();
+            }
+        }
+        function resetAllScores() {
+            scoreboardTeams.forEach(team => team.score = 0);
+            saveScoreboard();
+            displayScoreboard();
+        }
+
+        // Toggle Desks Visibility
+        function toggleDesksVisibility() {
+            desksVisible = !desksVisible;
+            document.querySelectorAll('.desk, #teacher-desk').forEach(d => { d.style.display = desksVisible ? 'block' : 'none'; });
+            const btn = document.getElementById('toggleDesksBtn');
+            btn.innerHTML = desksVisible ? '🙈 Hide Desks' : '🙉 Show Desks';
+            btn.classList.toggle('bg-slate-500', desksVisible);
+            btn.classList.toggle('hover:bg-slate-600', desksVisible);
+            btn.classList.toggle('bg-green-500', !desksVisible);
+            btn.classList.toggle('hover:bg-green-600', !desksVisible);
+        }
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStudentData();
+            loadTodoList();
+            loadPickedStudents();
+            initializeClassroom();
+            loadSavedBackground();
+            loadNotes();
+            loadStickers();
+            
+            document.querySelectorAll('.modal-window').forEach(modal => {
+                makeModalDraggable(modal);
+                makeModalResizable(modal);
+            });
+
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                if (confirm("Are you sure you want to reset EVERYTHING? This will clear all points, attendance, notes, and saved layouts.")) {
+                    localStorage.clear();
+                    // Re-initialize all data to default
+                    pickedStudents.clear();
+                    scoreboardTeams = [];
+                    todoItems = [];
+                    savedLayout = null;
+                    initializeStudentData();
+                    initializeClassroom(true);
+                    renderTodoList();
+                    updatePickedStudentsList();
+                    clearAllStickers();
+                    loadNotes(); // will clear the textarea
+                    removeBackground();
+                    closeModal('scoreboardDisplayModal');
+                    alert("Everything has been reset to the default state.");
+                }
+            });
+            document.getElementById('saveLayoutBtn').addEventListener('click', saveCurrentLayout);
+            document.getElementById('loadLayoutBtn').addEventListener('click', () => {
+                const saved = localStorage.getItem('classroomLayout');
+                const btn = document.getElementById('loadLayoutBtn');
+                const originalText = btn.innerHTML;
+                if (saved) {
+                    clearSelection(); loadSavedLayout();
+                    btn.innerHTML = '✅ Loaded!';
+                    setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+                } else {
+                    btn.innerHTML = '❌ No Layout Saved';
+                    setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+                }
+            });
+            document.getElementById('clearSelectionBtn').addEventListener('click', clearSelection);
+
+            // Button Event Listeners to Open Modals
+            document.getElementById('exportLayoutBtn').addEventListener('click', exportLayoutForUpdate);
+            document.getElementById('copyLayoutCodeBtn').addEventListener('click', () => {
+                const code = document.getElementById('layoutExportCode').value;
+                copyToClipboard(code);
+                const btn = document.getElementById('copyLayoutCodeBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                setTimeout(() => { btn.textContent = originalText; }, 2000);
+            });
+            document.getElementById('geminiLessonBtn').addEventListener('click', handleGenerateLessonIdeas);
+            document.getElementById('geminiGroupBtn').addEventListener('click', handleExplainGroups);
+            document.getElementById('attendanceBtn').addEventListener('click', openAttendanceModal);
+            document.getElementById('todoBtn').addEventListener('click', () => { renderTodoList(); openModal('todoModal'); });
+            document.getElementById('diceBtn').addEventListener('click', () => openModal('diceModal'));
+            document.getElementById('stickersBtn').addEventListener('click', () => openModal('stickersModal'));
+            document.getElementById('notesBtn').addEventListener('click', () => openModal('notesModal'));
+            document.getElementById('backgroundBtn').addEventListener('click', () => openModal('backgroundModal'));
+            document.getElementById('randomStudentBtn').addEventListener('click', () => { updatePickedStudentsList(); openModal('randomStudentModal'); });
+            document.getElementById('timerBtn').addEventListener('click', () => openModal('timerModal'));
+            document.getElementById('scoreboardBtn').addEventListener('click', () => {
+                if(loadScoreboard()) {
+                    displayScoreboard();
+                    openModal('scoreboardDisplayModal');
+                } else {
+                    openModal('scoreboardSetupModal');
+                }
+            });
+            document.getElementById('groupMakerBtn').addEventListener('click', () => openModal('groupMakerModal'));
+            
+            // Other Listeners
+            document.getElementById('addTodoBtn').addEventListener('click', addTodo);
+            document.getElementById('todoInput').addEventListener('keypress', (e) => { if (e.key === 'Enter') addTodo(); });
+            document.getElementById('rollDiceBtn').addEventListener('click', rollDice);
+            document.getElementById('clearStickersBtn').addEventListener('click', clearAllStickers);
+            document.querySelectorAll('.sticker-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    const emoji = e.target.dataset.sticker;
+                    const classroomRect = document.getElementById('classroom-area').getBoundingClientRect();
+                    createSticker(emoji, Math.random() * (classroomRect.width - 100) + 50, Math.random() * (classroomRect.height - 100) + 50);
+                });
+            });
+            document.getElementById('saveNotesBtn').addEventListener('click', saveNotes);
+            document.getElementById('loadNotesBtn').addEventListener('click', loadNotes);
+            document.getElementById('backgroundUpload').addEventListener('change', handleBackgroundUpload);
+            document.getElementById('removeBackgroundBtn').addEventListener('click', removeBackground);
+            document.getElementById('defaultBackgroundBtn').addEventListener('click', () => removeBackground());
+            document.getElementById('toggleDesksBtn').addEventListener('click', toggleDesksVisibility);
+            document.getElementById('createGroupsBtn').addEventListener('click', () => {
+                const numGroups = parseInt(document.getElementById('groupCount').value);
+                const method = document.getElementById('groupMethod').value;
+                if (numGroups >= 2 && numGroups <= 12) {
+                    createGroups(numGroups, method);
+                    closeModal('groupMakerModal');
+                }
+            });
+            document.getElementById('clearGroupsBtn').addEventListener('click', clearGroups);
+            document.getElementById('pickStudentBtn').addEventListener('click', pickRandomStudent);
+            document.getElementById('resetPickedBtn').addEventListener('click', resetPickedList);
+            document.getElementById('startTimerBtn').addEventListener('click', () => {
+                const minutes = parseInt(document.getElementById('timerMinutes').value);
+                if (minutes >= 1 && minutes <= 60) startTimer(minutes);
+            });
+            document.getElementById('pauseTimerBtn').addEventListener('click', pauseTimer);
+            document.getElementById('stopTimerBtn').addEventListener('click', stopTimer);
+            document.getElementById('createScoreboardBtn').addEventListener('click', () => {
+                const numTeams = parseInt(document.getElementById('teamCount').value);
+                if (numTeams >= 2 && numTeams <= 8) createScoreboard(numTeams);
+            });
+            document.getElementById('resetScoresBtn').addEventListener('click', resetAllScores);
+        });
+    </script>
+</body>
+</html>
+
+
