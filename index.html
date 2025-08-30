@@ -6,6 +6,7 @@
     <title>Prep C Rocks!</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        /* --- Existing Styles --- */
         .desk {
             cursor: move;
             transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.3s ease;
@@ -108,6 +109,11 @@
         .group-item:hover {
             background: rgba(255, 255, 255, 1);
             transform: scale(1.05);
+        }
+        .group-slot-btn.active {
+            background-color: #ec4899;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px #ec4899;
         }
         .dice-3d {
             transform-style: preserve-3d;
@@ -212,7 +218,6 @@
         .gemini-content em, .gemini-content i { font-style: italic; }
         .gemini-content pre, .gemini-content code { background-color: #f3f4f6; padding: 0.2em 0.4em; border-radius: 0.25em; font-family: monospace; }
         .gemini-content pre { padding: 1em; overflow-x: auto; }
-
         /* Traffic Light Styles */
         .traffic-light-container {
             position: fixed;
@@ -252,108 +257,142 @@
     </style>
 </head>
 <body class="classroom p-8" id="mainBody">
-    <!-- Traffic Light Element -->
-    <div id="trafficLightContainer" class="traffic-light-container green" title="Click to change classroom status">
-        <div class="traffic-light light-red"></div>
-        <div class="traffic-light light-yellow"></div>
-        <div class="traffic-light light-green"></div>
+
+    <!-- Password Protection Overlay -->
+    <div id="password-overlay" class="fixed inset-0 bg-gray-900 bg-opacity-90 flex items-center justify-center z-[9999]">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center w-full max-w-sm">
+            <h2 class="text-2xl font-bold mb-4 text-gray-800">Enter Password</h2>
+            <p class="text-gray-600 mb-6">This site is password protected.</p>
+            <input type="password" id="password-input" class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:outline-none text-lg text-center mb-4">
+            <button id="password-submit" class="w-full bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">Enter</button>
+            <p id="password-error" class="text-red-500 mt-4" style="display: none;">Incorrect Password. Please try again.</p>
+        </div>
     </div>
 
-    <div class="max-w-7xl mx-auto">
-        <h1 class="text-4xl font-bold text-white text-center mb-8 drop-shadow-lg">
-            🏫 Prep C Rocks! 📚
-        </h1>
-        <p class="text-white text-center mb-12 text-lg opacity-90">
-            Drag and drop student desks to arrange your classroom layout
-        </p>
-        
-        <div class="flex justify-center gap-4 mb-6 flex-wrap">
-            <button id="resetBtn" class="bg-white text-purple-600 px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-purple-50 transition-colors">
-                🔄 Reset Layout
-            </button>
-            <button id="saveLayoutBtn" class="bg-green-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-green-600 transition-colors">
-                💾 Save as Default
-            </button>
-            <button id="loadLayoutBtn" class="bg-indigo-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-indigo-600 transition-colors">
-                📂 Load Saved Layout
-            </button>
-            <button id="groupMakerBtn" class="bg-blue-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-blue-600 transition-colors">
-                👥 Group Maker
-            </button>
-            <button id="clearSelectionBtn" class="bg-yellow-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-yellow-600 transition-colors">
-                ❌ Clear Selection
-            </button>
-            <button id="randomStudentBtn" class="bg-pink-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-pink-600 transition-colors">
-                🎲 Random Student
-            </button>
-            <button id="timerBtn" class="bg-orange-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-orange-600 transition-colors">
-                ⏰ Activity Timer
-            </button>
-            <button id="scoreboardBtn" class="bg-teal-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-teal-600 transition-colors">
-                🏆 Scoreboard
-            </button>
+    <!-- Main Application Container (Initially Hidden) -->
+    <div id="app-container" class="hidden">
+        <!-- Traffic Light Element -->
+        <div id="trafficLightContainer" class="traffic-light-container green" title="Click to change classroom status">
+            <div class="traffic-light light-red"></div>
+            <div class="traffic-light light-yellow"></div>
+            <div class="traffic-light light-green"></div>
         </div>
 
-        <!-- New Feature Buttons -->
-        <div class="flex justify-center gap-4 mb-6 flex-wrap">
-            <button id="attendanceBtn" class="bg-fuchsia-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-fuchsia-600 transition-colors">
-                ✔️ Attendance
-            </button>
-            <button id="todoBtn" class="bg-sky-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-sky-600 transition-colors">
-                📋 To-Do List
-            </button>
-            <button id="diceBtn" class="bg-purple-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-purple-700 transition-colors">
-                🎲 Digital Dice
-            </button>
-            <button id="stickersBtn" class="bg-red-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-red-600 transition-colors">
-                ⭐ Award Stickers
-            </button>
-            <button id="notesBtn" class="bg-cyan-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-cyan-600 transition-colors">
-                📝 Teacher Notes
-            </button>
-            <button id="backgroundBtn" class="bg-emerald-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-emerald-600 transition-colors">
-                🖼️ Background
-            </button>
-            <button id="toggleDesksBtn" class="bg-slate-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-slate-600 transition-colors">
-                🙈 Hide Desks
-            </button>
-            <button id="exportLayoutBtn" class="bg-rose-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-rose-600 transition-colors">
-                📤 Export Layout for Update
-            </button>
-        </div>
-        
-        <!-- Selection Info -->
-        <div id="selectionInfo" class="selection-info" style="display: none;">
-            <div>Selected: <span id="selectedCount">0</span> desks</div>
-            <div class="text-xs mt-1">Hold Ctrl/Cmd + Click to select multiple desks</div>
-        </div>
-        
-        <div id="classroom-area" class="relative bg-white/10 backdrop-blur-sm rounded-3xl p-8 classroom-floor border-4 border-white/20" style="min-height: 1200px;">
-            <!-- Classroom decorations -->
-            <div class="absolute top-4 left-4 text-white/30 text-6xl">🎓</div>
-            <div class="absolute top-4 right-4 text-white/30 text-6xl">📖</div>
-            <div class="absolute bottom-4 left-4 text-white/30 text-6xl">✏️</div>
-            <div class="absolute bottom-4 right-4 text-white/30 text-6xl">🌟</div>
+        <div class="max-w-7xl mx-auto">
+            <h1 class="text-4xl font-bold text-white text-center mb-8 drop-shadow-lg">
+                🏫 Prep C Rocks! 📚
+            </h1>
+            <p class="text-white text-center mb-12 text-lg opacity-90">
+                Drag and drop student desks to arrange your classroom layout
+            </p>
             
-            <!-- Teacher's Desk -->
-            <div id="teacher-desk" class="absolute rounded-xl shadow-lg p-6 w-60 h-40 border-3 border-yellow-400 cursor-move" 
-                 style="left: 50%; top: 20px; transform: translateX(-50%); background: linear-gradient(135deg, #fbbf24, #f59e0b);">
-                <div class="flex flex-col items-center h-full justify-center">
-                    <div class="text-3xl mb-2">👩‍🏫</div>
-                    <div class="text-lg font-bold text-yellow-900 text-center">
-                        Teacher's Desk
-                    </div>
-                    <div class="text-sm text-yellow-800 text-center mt-1">
-                        Front of Classroom
+            <div class="flex justify-center gap-4 mb-6 flex-wrap">
+                <button id="resetBtn" class="bg-white text-purple-600 px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-purple-50 transition-colors">
+                    🔄 Reset Layout
+                </button>
+                <button id="saveLayoutBtn" class="bg-green-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-green-600 transition-colors">
+                    💾 Save as Default
+                </button>
+                <button id="loadLayoutBtn" class="bg-indigo-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-indigo-600 transition-colors">
+                    📂 Load Saved Layout
+                </button>
+                <button id="groupMakerBtn" class="bg-blue-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-blue-600 transition-colors">
+                    👥 Group Maker
+                </button>
+                <button id="clearSelectionBtn" class="bg-yellow-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-yellow-600 transition-colors">
+                    ❌ Clear Selection
+                </button>
+                <button id="randomStudentBtn" class="bg-pink-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-pink-600 transition-colors">
+                    🎲 Random Student
+                </button>
+                <button id="timerBtn" class="bg-orange-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-orange-600 transition-colors">
+                    ⏰ Activity Timer
+                </button>
+                <button id="scoreboardBtn" class="bg-teal-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-teal-600 transition-colors">
+                    🏆 Scoreboard
+                </button>
+            </div>
+
+            <!-- New Feature Buttons -->
+            <div class="flex justify-center gap-4 mb-6 flex-wrap">
+                <button id="attendanceBtn" class="bg-fuchsia-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-fuchsia-600 transition-colors">
+                    ✔️ Attendance
+                </button>
+                <button id="todoBtn" class="bg-sky-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-sky-600 transition-colors">
+                    📋 To-Do List
+                </button>
+                <button id="quoteBtn" class="bg-amber-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-amber-600 transition-colors">
+                    ❝ Quote of the Day
+                </button>
+                <button id="diceBtn" class="bg-purple-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-purple-700 transition-colors">
+                    🎲 Digital Dice
+                </button>
+                <button id="stickersBtn" class="bg-red-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-red-600 transition-colors">
+                    ⭐ Award Stickers
+                </button>
+                <button id="notesBtn" class="bg-cyan-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-cyan-600 transition-colors">
+                    📝 Teacher Notes
+                </button>
+                <button id="backgroundBtn" class="bg-emerald-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-emerald-600 transition-colors">
+                    🖼️ Background
+                </button>
+                <button id="toggleDesksBtn" class="bg-slate-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-slate-600 transition-colors">
+                    🙈 Hide Desks
+                </button>
+                <button id="exportLayoutBtn" class="bg-rose-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-rose-600 transition-colors">
+                    📤 Export Layout for Update
+                </button>
+            </div>
+            
+            <!-- Selection Info -->
+            <div id="selectionInfo" class="selection-info" style="display: none;">
+                <div>Selected: <span id="selectedCount">0</span> desks</div>
+                <div class="text-xs mt-1">Hold Ctrl/Cmd + Click to select multiple desks</div>
+            </div>
+            
+            <div id="classroom-area" class="relative bg-white/10 backdrop-blur-sm rounded-3xl p-8 classroom-floor border-4 border-white/20" style="min-height: 1200px;">
+                <!-- Classroom decorations -->
+                <div class="absolute top-4 left-4 text-white/30 text-6xl">🎓</div>
+                <div class="absolute top-4 right-4 text-white/30 text-6xl">📖</div>
+                <div class="absolute bottom-4 left-4 text-white/30 text-6xl">✏️</div>
+                <div class="absolute bottom-4 right-4 text-white/30 text-6xl">🌟</div>
+                
+                <!-- Teacher's Desk -->
+                <div id="teacher-desk" class="absolute rounded-xl shadow-lg p-6 w-60 h-40 border-3 border-yellow-400 cursor-move" 
+                     style="left: 50%; top: 20px; transform: translateX(-50%); background: linear-gradient(135deg, #fbbf24, #f59e0b);">
+                    <div class="flex flex-col items-center h-full justify-center">
+                        <div class="text-3xl mb-2">👩‍🏫</div>
+                        <div class="text-lg font-bold text-yellow-900 text-center">
+                            Teacher's Desk
+                        </div>
+                        <div class="text-sm text-yellow-800 text-center mt-1">
+                            Front of Classroom
+                        </div>
                     </div>
                 </div>
+                <!-- Students will be dynamically added here -->
             </div>
-            <!-- Students will be dynamically added here -->
         </div>
     </div>
 
     <!-- MODAL WINDOWS CONTAINER -->
     <div id="modal-container">
+        <!-- Quote of the Day Modal -->
+        <div id="quoteModal" class="modal-window" style="width: 450px;">
+            <div class="modal-header">
+                <h3 class="modal-title">❝ Quote of the Day</h3>
+                <button class="modal-close-btn" onclick="closeModal('quoteModal')">&times;</button>
+            </div>
+            <div class="modal-body text-center">
+                <div id="quoteContent" class="min-h-[100px] flex items-center justify-center p-4 bg-gray-50 rounded-lg">
+                    <p class="text-gray-500">Click the button to fetch an inspirational quote...</p>
+                </div>
+                <button id="getNewQuoteBtn" class="w-full mt-4 bg-amber-500 text-white py-2 px-4 rounded-lg font-semibold hover:bg-amber-600 transition-colors">
+                    Fetch New Quote
+                </button>
+            </div>
+        </div>
+
         <!-- Export Layout Modal -->
         <div id="exportModal" class="modal-window" style="width: 700px;">
             <div class="modal-header">
@@ -628,14 +667,29 @@
         <!-- Groups Display Container (not a modal) -->
         <div id="groupsContainer" class="mb-6" style="display: none;">
             <div class="bg-white/20 backdrop-blur-sm rounded-2xl p-6 border-2 border-white/30">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-xl font-bold text-white">📋 Current Groups</h3>
-                    <div>
-                        <button id="geminiGroupBtn" class="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors text-sm mr-2">
-                            ✨ Explain Groups
+                <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-white font-semibold text-sm">Load Slot:</span>
+                        <button id="loadSlot1Btn" class="group-slot-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600" onclick="loadGroupsFromSlot(1)">1</button>
+                        <button id="loadSlot2Btn" class="group-slot-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600" onclick="loadGroupsFromSlot(2)">2</button>
+                        <button id="loadSlot3Btn" class="group-slot-btn bg-blue-500 text-white px-3 py-1 rounded-md text-xs hover:bg-blue-600" onclick="loadGroupsFromSlot(3)">3</button>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="relative inline-block">
+                            <button id="saveGroupsBtn" class="bg-green-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-600 transition-colors text-sm">
+                                💾 Save Groups
+                            </button>
+                            <div id="saveSlotsDropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg z-10 hidden">
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onclick="saveCurrentGroupsToSlot(1, event)">Save to Slot 1</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onclick="saveCurrentGroupsToSlot(2, event)">Save to Slot 2</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" onclick="saveCurrentGroupsToSlot(3, event)">Save to Slot 3</a>
+                            </div>
+                        </div>
+                        <button id="geminiGroupBtn" class="bg-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-purple-700 transition-colors text-sm">
+                            ✨ Explain
                         </button>
                         <button id="clearGroupsBtn" class="bg-red-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-red-600 transition-colors text-sm">
-                            Clear Groups
+                            Clear
                         </button>
                     </div>
                 </div>
@@ -655,6 +709,10 @@
     <audio id="sound-timer" src="https://cdn.freesound.org/previews/219/219244_4049792-lq.mp3" preload="auto"></audio>
 
     <script>
+        // --- PASSWORD PROTECTION ---
+        // To change your password, edit the text inside the quotes below.
+        const correctPassword = "prep-c-rules";
+
         const initialStudents = [
     {
         "name": "Almira Demiral",
@@ -856,6 +914,8 @@
         let pickedStudents = new Set(), isPickerAnimating = false, stickerCounter = 0, draggedSticker = null;
         let stickerOffset = { x: 0, y: 0 }, desksVisible = true, todoItems = [], highestZ = 100;
         let trafficLightState = 'green';
+        let savedGroupSlots = { slot1: [], slot2: [], slot3: [] };
+        let activeSlot = null;
 
         // --- GEMINI API ---
         async function callGemini(prompt, systemInstruction) {
@@ -1486,6 +1546,52 @@
             return shuffled;
         }
 
+        // --- GROUP MAKER SLOTS ---
+        function saveGroupSlots() {
+            localStorage.setItem('groupSlots', JSON.stringify(savedGroupSlots));
+        }
+
+        function loadGroupSlots() {
+            const saved = localStorage.getItem('groupSlots');
+            if (saved) {
+                savedGroupSlots = JSON.parse(saved);
+            }
+        }
+
+        function saveCurrentGroupsToSlot(slotNumber, event) {
+            event.preventDefault();
+            if (currentGroups.length === 0) {
+                alert("There are no groups to save. Please create groups first.");
+                return;
+            }
+            savedGroupSlots[`slot${slotNumber}`] = JSON.parse(JSON.stringify(currentGroups)); // Deep copy
+            saveGroupSlots();
+            
+            // UI Feedback
+            const dropdown = document.getElementById('saveSlotsDropdown');
+            dropdown.classList.add('hidden');
+            const saveBtn = document.getElementById('saveGroupsBtn');
+            saveBtn.innerHTML = `✅ Saved to Slot ${slotNumber}!`;
+            setTimeout(() => {
+                saveBtn.innerHTML = '💾 Save Groups';
+            }, 2000);
+
+            loadGroupsFromSlot(slotNumber); // Ensure the loaded slot is now active
+        }
+
+        function loadGroupsFromSlot(slotNumber) {
+            const slotData = savedGroupSlots[`slot${slotNumber}`];
+            if (!slotData || slotData.length === 0) {
+                alert(`Slot ${slotNumber} is empty.`);
+                return;
+            }
+            currentGroups = JSON.parse(JSON.stringify(slotData)); // Deep copy
+            activeSlot = slotNumber;
+            isGroupMode = true;
+            document.getElementById('studentPool').style.display = 'none'; // Slots are always random-style
+            displayGroups();
+        }
+
         function createGroups(numGroups, method) {
             const presentStudents = studentsData.filter(s => s.attendance === 'present').map(s => s.name);
             currentGroups = Array.from({ length: numGroups }, (_, i) => ({ id: i + 1, name: `Group ${i + 1}`, students: [] }));
@@ -1497,8 +1603,9 @@
                 displayStudentPool(presentStudents);
                 document.getElementById('studentPool').style.display = 'block';
             }
-            displayGroups();
+            activeSlot = null; // Newly created groups aren't in a slot yet
             isGroupMode = true;
+            displayGroups();
         }
 
         function displayStudentPool(availableStudents) {
@@ -1519,6 +1626,16 @@
             const container = document.getElementById('groupsContainer');
             const groupsList = document.getElementById('groupsList');
             groupsList.innerHTML = '';
+
+            // Update active slot button UI
+            document.querySelectorAll('.group-slot-btn').forEach((btn, index) => {
+                if (index + 1 === activeSlot) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+
             currentGroups.forEach(group => {
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'group-zone p-4'; groupDiv.dataset.groupId = group.id;
@@ -1552,6 +1669,7 @@
                 const targetGroup = currentGroups.find(g => g.id == targetGroupId);
                 if (targetGroup && !targetGroup.students.includes(studentName)) targetGroup.students.push(studentName);
                 if (sourceGroupId === 'pool') document.getElementById('availableStudents').querySelector(`[data-student="${studentName}"]`)?.remove();
+                activeSlot = null; // Manual change makes it a new temporary group
                 displayGroups();
             }
         }
@@ -1566,12 +1684,15 @@
             if (sourceGroupId && sourceGroupId !== 'pool') {
                 const sourceGroup = currentGroups.find(g => g.id == sourceGroupId);
                 if (sourceGroup) sourceGroup.students = sourceGroup.students.filter(s => s !== studentName);
+                activeSlot = null; // Manual change
                 displayStudentPool(studentsData.filter(s => s.attendance === 'present' && !currentGroups.flatMap(g => g.students).includes(s.name)).map(s => s.name));
                 displayGroups();
             }
         }
         function clearGroups() {
-            currentGroups = []; isGroupMode = false;
+            currentGroups = []; 
+            isGroupMode = false;
+            activeSlot = null;
             document.getElementById('groupsContainer').style.display = 'none';
         }
 
@@ -1785,13 +1906,99 @@
             saveTrafficLightState();
         }
 
+        // --- QUOTE OF THE DAY ---
+        async function getQuoteOfTheDay() {
+            const quoteContent = document.getElementById('quoteContent');
+            const systemPrompt = "You are an AI assistant that provides insightful quotes. Your task is to generate a single, thought-provoking quote suitable for teenagers, related to philosophy, science, or Theory of Knowledge (TOK). The quote should be from a real, notable figure (e.g., philosopher, scientist, writer). After the quote, provide the author's name. Format your response as follows: QUOTE|AUTHOR. Do not include any other text, greetings, or explanations.";
+            const userPrompt = "Generate a TOK-aligned quote for teenagers.";
+            
+            openModal('quoteModal');
+            quoteContent.innerHTML = '<div class="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-amber-500"></div>';
+            
+            try {
+                const apiKey = ""; // API key is handled by the environment
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+                const payload = { 
+                    contents: [{ parts: [{ text: userPrompt }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] }
+                };
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text && text.includes('|')) {
+                    const [quoteText, author] = text.split('|').map(s => s.trim());
+                     quoteContent.innerHTML = `
+                        <figure>
+                            <blockquote class="text-xl italic font-semibold text-gray-900">
+                                <p>"${quoteText}"</p>
+                            </blockquote>
+                            <figcaption class="mt-4 text-right text-gray-600">
+                                - ${author || "Unknown"}
+                            </figcaption>
+                        </figure>
+                    `;
+                } else {
+                     throw new Error("Invalid format from API");
+                }
+            } catch (error) {
+                console.error("Failed to fetch quote:", error);
+                quoteContent.innerHTML = '<p class="text-red-500">Sorry, could not fetch a quote at this time.</p>';
+            }
+        }
 
         // Initialize App
         document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- Password Check ---
+            const passwordOverlay = document.getElementById('password-overlay');
+            const appContainer = document.getElementById('app-container');
+            const passwordInput = document.getElementById('password-input');
+            const passwordSubmit = document.getElementById('password-submit');
+            const passwordError = document.getElementById('password-error');
+
+            function unlockApp() {
+                passwordOverlay.style.display = 'none';
+                appContainer.classList.remove('hidden');
+            }
+
+            function checkPassword() {
+                if (passwordInput.value === correctPassword) {
+                    sessionStorage.setItem('isAuthenticated', 'true');
+                    unlockApp();
+                } else {
+                    passwordError.style.display = 'block';
+                }
+            }
+
+            // Check if user is already authenticated in this session
+            if (sessionStorage.getItem('isAuthenticated') === 'true') {
+                unlockApp();
+            } else {
+                 passwordOverlay.style.display = 'flex';
+            }
+
+            passwordSubmit.addEventListener('click', checkPassword);
+            passwordInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    checkPassword();
+                }
+            });
+
+
+            // --- Load All Data ---
             loadStudentData();
             loadTodoList();
             loadPickedStudents();
             loadTrafficLightState();
+            loadGroupSlots();
             initializeClassroom();
             loadSavedBackground();
             loadNotes();
@@ -1810,6 +2017,8 @@
                     scoreboardTeams = [];
                     todoItems = [];
                     savedLayout = null;
+                    savedGroupSlots = { slot1: [], slot2: [], slot3: [] };
+                    activeSlot = null;
                     initializeStudentData();
                     initializeClassroom(true);
                     renderTodoList();
@@ -1853,6 +2062,8 @@
             document.getElementById('geminiGroupBtn').addEventListener('click', handleExplainGroups);
             document.getElementById('attendanceBtn').addEventListener('click', openAttendanceModal);
             document.getElementById('todoBtn').addEventListener('click', () => { renderTodoList(); openModal('todoModal'); });
+            document.getElementById('quoteBtn').addEventListener('click', getQuoteOfTheDay);
+            document.getElementById('getNewQuoteBtn').addEventListener('click', getQuoteOfTheDay);
             document.getElementById('diceBtn').addEventListener('click', () => openModal('diceModal'));
             document.getElementById('stickersBtn').addEventListener('click', () => openModal('stickersModal'));
             document.getElementById('notesBtn').addEventListener('click', () => openModal('notesModal'));
@@ -1896,6 +2107,9 @@
                 }
             });
             document.getElementById('clearGroupsBtn').addEventListener('click', clearGroups);
+            document.getElementById('saveGroupsBtn').addEventListener('click', () => {
+                document.getElementById('saveSlotsDropdown').classList.toggle('hidden');
+            });
             document.getElementById('pickStudentBtn').addEventListener('click', pickRandomStudent);
             document.getElementById('resetPickedBtn').addEventListener('click', resetPickedList);
             document.getElementById('startTimerBtn').addEventListener('click', () => {
@@ -1913,6 +2127,4 @@
     </script>
 </body>
 </html>
-
-
 
