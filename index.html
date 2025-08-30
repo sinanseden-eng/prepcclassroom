@@ -923,7 +923,7 @@
             openModal('geminiModal');
             geminiResult.innerHTML = '<div class="flex justify-center items-center h-full"><div class="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-500"></div></div>';
 
-            const apiKey = ""; // API key is handled by the environment
+            const apiKey = "AIzaSyAuFtUiTGRQPMPlOXfcLr_tO--VQwLZwZE"; // API key is handled by the environment
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             const payload = { contents: [{ parts: [{ text: prompt }] }] };
@@ -2127,4 +2127,5 @@
     </script>
 </body>
 </html>
+
 
