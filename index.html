@@ -212,9 +212,53 @@
         .gemini-content em, .gemini-content i { font-style: italic; }
         .gemini-content pre, .gemini-content code { background-color: #f3f4f6; padding: 0.2em 0.4em; border-radius: 0.25em; font-family: monospace; }
         .gemini-content pre { padding: 1em; overflow-x: auto; }
+
+        /* Traffic Light Styles */
+        .traffic-light-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #2d3748;
+            padding: 10px;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            cursor: pointer;
+            z-index: 2000;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .traffic-light {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #4a5568;
+            transition: all 0.3s ease;
+            border: 2px solid #1a202c;
+        }
+        .traffic-light-container.green .light-green {
+            background-color: #48bb78;
+            box-shadow: 0 0 15px #48bb78, inset 0 0 5px white;
+        }
+        .traffic-light-container.yellow .light-yellow {
+            background-color: #f6e05e;
+            box-shadow: 0 0 15px #f6e05e, inset 0 0 5px white;
+        }
+        .traffic-light-container.red .light-red {
+            background-color: #f56565;
+            box-shadow: 0 0 15px #f56565, inset 0 0 5px white;
+        }
     </style>
 </head>
 <body class="classroom p-8" id="mainBody">
+    <!-- Traffic Light Element -->
+    <div id="trafficLightContainer" class="traffic-light-container green" title="Click to change classroom status">
+        <div class="traffic-light light-red"></div>
+        <div class="traffic-light light-yellow"></div>
+        <div class="traffic-light light-green"></div>
+    </div>
+
     <div class="max-w-7xl mx-auto">
         <h1 class="text-4xl font-bold text-white text-center mb-8 drop-shadow-lg">
             🏫 Prep C Rocks! 📚
@@ -811,6 +855,7 @@
         let timerInterval = null, timerSeconds = 0, timerPaused = false, scoreboardTeams = [];
         let pickedStudents = new Set(), isPickerAnimating = false, stickerCounter = 0, draggedSticker = null;
         let stickerOffset = { x: 0, y: 0 }, desksVisible = true, todoItems = [], highestZ = 100;
+        let trafficLightState = 'green';
 
         // --- GEMINI API ---
         async function callGemini(prompt, systemInstruction) {
@@ -1712,11 +1757,41 @@
             btn.classList.toggle('hover:bg-green-600', !desksVisible);
         }
 
+        // --- TRAFFIC LIGHT ---
+        function saveTrafficLightState() {
+            localStorage.setItem('trafficLightState', trafficLightState);
+        }
+
+        function loadTrafficLightState() {
+            const savedState = localStorage.getItem('trafficLightState') || 'green';
+            setTrafficLightState(savedState);
+        }
+
+        function setTrafficLightState(state) {
+            const container = document.getElementById('trafficLightContainer');
+            container.classList.remove('green', 'yellow', 'red');
+            container.classList.add(state);
+            trafficLightState = state;
+        }
+
+        function cycleTrafficLight() {
+            if (trafficLightState === 'green') {
+                setTrafficLightState('yellow');
+            } else if (trafficLightState === 'yellow') {
+                setTrafficLightState('red');
+            } else {
+                setTrafficLightState('green');
+            }
+            saveTrafficLightState();
+        }
+
+
         // Initialize App
         document.addEventListener('DOMContentLoaded', () => {
             loadStudentData();
             loadTodoList();
             loadPickedStudents();
+            loadTrafficLightState();
             initializeClassroom();
             loadSavedBackground();
             loadNotes();
@@ -1743,6 +1818,7 @@
                     loadNotes(); // will clear the textarea
                     removeBackground();
                     closeModal('scoreboardDisplayModal');
+                    setTrafficLightState('green');
                     alert("Everything has been reset to the default state.");
                 }
             });
@@ -1763,6 +1839,7 @@
             document.getElementById('clearSelectionBtn').addEventListener('click', clearSelection);
 
             // Button Event Listeners to Open Modals
+            document.getElementById('trafficLightContainer').addEventListener('click', cycleTrafficLight);
             document.getElementById('exportLayoutBtn').addEventListener('click', exportLayoutForUpdate);
             document.getElementById('copyLayoutCodeBtn').addEventListener('click', () => {
                 const code = document.getElementById('layoutExportCode').value;
@@ -1836,5 +1913,6 @@
     </script>
 </body>
 </html>
+
 
 
