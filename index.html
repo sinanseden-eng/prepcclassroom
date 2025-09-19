@@ -324,6 +324,9 @@
                 <button id="quoteBtn" class="bg-amber-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-amber-600 transition-colors">
                     ❝ Quote of the Day
                 </button>
+                <button id="wordPickerBtn" class="bg-lime-500 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-lime-600 transition-colors">
+                    ✍️ Word Picker
+                </button>
                 <button id="diceBtn" class="bg-purple-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-purple-700 transition-colors">
                     🎲 Digital Dice
                 </button>
@@ -344,6 +347,9 @@
                 </button>
                 <button id="apiKeyBtn" class="bg-gray-700 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-gray-800 transition-colors">
                     ⚙️ API Key
+                </button>
+                <button id="storyCrafterBtn" class="bg-pink-600 text-white px-6 py-3 rounded-full font-semibold shadow-lg hover:bg-pink-700 transition-colors">
+                    🚀 AI Story Crafter
                 </button>
             </div>
             
@@ -380,6 +386,60 @@
 
     <!-- MODAL WINDOWS CONTAINER -->
     <div id="modal-container">
+        <!-- Story Crafter Modal -->
+        <div id="storyCrafterModal" class="modal-window" style="width: 550px;">
+            <div class="modal-header">
+                <h3 class="modal-title">🚀 AI Story Crafter Competition</h3>
+                <button class="modal-close-btn" onclick="closeModal('storyCrafterModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h4 class="text-lg font-bold text-gray-800 mb-2">How to Play</h4>
+                <ol class="list-decimal list-inside space-y-2 text-gray-700">
+                    <li>**Form Teams:** Click the <strong>"👥 Group Maker"</strong> button to create your teams.</li>
+                    <li>**Get Your Words:** Open the <strong>"✍️ Word Picker"</strong>. Make sure your vocabulary list is ready and choose how many words to pick.</li>
+                    <li>**The Challenge:** Write a short, creative story (one paragraph) that uses ALL of the AI-picked words.</li>
+                    <li>**Start the Clock:** Use the <strong>"⏰ Activity Timer"</strong> to set a time limit for writing.</li>
+                    <li>**Share & Score:** When time is up, teams share their stories. Use the <strong>"🏆 Scoreboard"</strong> to award points!</li>
+                </ol>
+                <h4 class="text-lg font-bold text-gray-800 mt-6 mb-2">Scoring Rubric</h4>
+                <ul class="list-disc list-inside space-y-2 text-gray-700">
+                    <li><strong>Word Usage (5 Points):</strong> Were all the words used correctly in a way that makes sense?</li>
+                    <li><strong>Creativity (3 Points):</strong> How original and imaginative is the story?</li>
+                    <li><strong>Teamwork (2 Points):</strong> Did the team work well together?</li>
+                </ul>
+            </div>
+        </div>
+
+         <!-- Word Picker Modal -->
+        <div id="wordPickerModal" class="modal-window" style="width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title">✍️ AI Word Picker</h3>
+                <button class="modal-close-btn" onclick="closeModal('wordPickerModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <label for="wordListInput" class="block text-sm font-medium text-gray-700 mb-1">Paste your word list here (one word per line):</label>
+                    <textarea id="wordListInput" class="w-full p-2 border-2 border-gray-300 rounded-lg h-40 focus:border-lime-500 focus:outline-none" placeholder="happy&#10;sunshine&#10;adventure&#10;discover&#10;friendship..."></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="wordCountInput" class="block text-sm font-medium text-gray-700 mb-1">How many words to pick?</label>
+                    <input type="number" id="wordCountInput" min="1" value="3" class="w-full p-2 border-2 border-gray-300 rounded-lg text-center">
+                </div>
+                <div class="flex gap-2">
+                     <button id="saveWordListBtn" class="w-1/2 bg-blue-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-blue-600 transition-colors">
+                        💾 Save List
+                    </button>
+                    <button id="pickWordsBtn" class="w-1/2 bg-lime-500 text-white py-3 px-6 rounded-lg font-semibold hover:bg-lime-600 transition-colors">
+                        ✨ Pick Words with AI
+                    </button>
+                </div>
+                <div class="mt-4 p-4 bg-gray-50 rounded-lg min-h-[50px]">
+                    <h4 class="font-bold text-gray-800 mb-2">Picked Words:</h4>
+                    <div id="pickedWordsResult" class="text-lg font-semibold text-lime-700"></div>
+                </div>
+            </div>
+        </div>
+
          <!-- API Key Modal -->
         <div id="apiKeyModal" class="modal-window" style="width: 500px;">
             <div class="modal-header">
@@ -834,14 +894,6 @@
         "position": {
             "left": "242.985px",
             "top": "558.195px"
-        }
-    },
-    {
-        "name": "Handan Çelik",
-        "photo": "https://drive.google.com/thumbnail?id=1JMrNy78j_IQAcbD015m9QN5OURcPrNqx&sz=w200",
-        "position": {
-            "left": "683.081px",
-            "top": "722.09px"
         }
     },
     {
@@ -1968,6 +2020,45 @@
             // If text is null, the error message is already handled by callGemini
         }
         
+        // --- AI WORD PICKER ---
+        function saveWordList(showFeedback = false) {
+            localStorage.setItem('wordPickerList', document.getElementById('wordListInput').value);
+            if (showFeedback) {
+                const btn = document.getElementById('saveWordListBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '✅ Saved!';
+                setTimeout(() => {
+                    btn.innerHTML = '💾 Save List';
+                }, 1500);
+            }
+        }
+        function loadWordList() {
+            document.getElementById('wordListInput').value = localStorage.getItem('wordPickerList') || '';
+        }
+        async function pickWordsWithAI() {
+            const wordList = document.getElementById('wordListInput').value.trim().split('\n').filter(w => w);
+            const wordCount = parseInt(document.getElementById('wordCountInput').value);
+            const resultDiv = document.getElementById('pickedWordsResult');
+
+            if (wordList.length < wordCount) {
+                alert("You need to provide at least as many words as you want to pick.");
+                return;
+            }
+
+            saveWordList(false); // Save the list whenever the button is clicked, but don't show feedback
+            resultDiv.innerHTML = '<div class="flex justify-center"><div class="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-lime-500"></div></div>';
+            
+            const systemPrompt = "You are an AI language assistant. Your task is to analyze a list of words provided by the user. From this list, you must select a specific number of words that, when combined, can form a coherent and meaningful sentence or phrase. Return ONLY the chosen words, separated by a comma and a space. Do not add any explanation or other text.";
+            const userPrompt = `From the following list, please pick ${wordCount} words that can form a meaningful sentence:\n\n${wordList.join(', ')}`;
+            
+            const text = await callGemini(userPrompt, systemPrompt);
+            if (text) {
+                resultDiv.textContent = text;
+            } else {
+                resultDiv.textContent = "Could not pick words. Please try again.";
+            }
+        }
+        
         // --- API KEY MANAGEMENT ---
         function saveApiKey() {
             const apiKeyInput = document.getElementById('apiKeyInput');
@@ -2037,6 +2128,7 @@
             loadPickedStudents();
             loadTrafficLightState();
             loadGroupSlots();
+            loadWordList();
             initializeClassroom();
             loadSavedBackground();
             loadNotes();
@@ -2066,6 +2158,7 @@
                     removeBackground();
                     closeModal('scoreboardDisplayModal');
                     setTrafficLightState('green');
+                    loadWordList(); // will clear the textarea
                     alert("Everything has been reset to the default state.");
                 }
             });
@@ -2102,6 +2195,10 @@
             document.getElementById('todoBtn').addEventListener('click', () => { renderTodoList(); openModal('todoModal'); });
             document.getElementById('quoteBtn').addEventListener('click', getQuoteOfTheDay);
             document.getElementById('getNewQuoteBtn').addEventListener('click', getQuoteOfTheDay);
+            document.getElementById('wordPickerBtn').addEventListener('click', () => openModal('wordPickerModal'));
+            document.getElementById('pickWordsBtn').addEventListener('click', pickWordsWithAI);
+            document.getElementById('saveWordListBtn').addEventListener('click', () => saveWordList(true));
+            document.getElementById('storyCrafterBtn').addEventListener('click', () => openModal('storyCrafterModal'));
             document.getElementById('diceBtn').addEventListener('click', () => openModal('diceModal'));
             document.getElementById('stickersBtn').addEventListener('click', () => openModal('stickersModal'));
             document.getElementById('notesBtn').addEventListener('click', () => openModal('notesModal'));
